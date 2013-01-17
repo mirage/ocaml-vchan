@@ -18,3 +18,5 @@
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_cstruct.syntax
 # OASIS_STOP
+<*/*>: syntax_camlp4o
+<lib/vchan>: pkg_cstruct.syntax
