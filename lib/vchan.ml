@@ -30,8 +30,8 @@ cstruct ring_hdr {
   uint8_t cli_live;
   uint8_t srv_live;
   uint8_t cli_notify;
-  uint8_t srv_notify;
-}
+  uint8_t srv_notify
+} as little_endian
 
 type ('a, 'b) result =
   | Ok of 'a
@@ -53,7 +53,7 @@ let order_of_location = function
   | Offset2048 -> 11
   | External n -> n + 12
 
-type state = function
+type state =
   | Exited
   | Connected
   | WaitingForConnection
@@ -62,6 +62,7 @@ let state_of_live = function
   | 0 -> Ok Exited
   | 1 -> Ok Connected
   | 2 -> Ok WaitingForConnection
+  | n -> Error (`Bad_live n)
 
 let live_of_state = function
   | Exited -> 0
@@ -74,8 +75,8 @@ let bit_of_read_write = function
   | Read -> 1 | Write -> 2
 
 let update get set ring f = set ring (f (get ring))
-let update_cli_notify = update get_cli_notify set_cli_notify
-let update_srv_notify = update get_srv_notify set_srv_notify
+let update_cli_notify = update get_ring_hdr_cli_notify set_ring_hdr_cli_notify
+let update_srv_notify = update get_ring_hdr_srv_notify set_ring_hdr_srv_notify
 
 let set_notify update ring rdwr =
   let bit = bit_of_read_write rdwr in
@@ -92,5 +93,4 @@ let clear_cli_notify = clear_notify update_cli_notify
 let clear_srv_notify = clear_notify update_srv_notify
 
 
-let intialise ring =
 
