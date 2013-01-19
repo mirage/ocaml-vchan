@@ -14,17 +14,22 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(* matches xen/include/public/io/libxenvchan.h:vchan_interface *)
 
 (* left is client write, server read
    right is client read, server write *)
 
-(* XXX: the xen header does not use __attribute__(packed) *)
-cstruct ring_hdr {
-  uint32_t left_cons;
-  uint32_t left_prod;
-  uint32_t right_cons;
-  uint32_t right_prod;
+(* XXX: the xen headers do not use __attribute__(packed) *)
+
+(* matches xen/include/public/io/libxenvchan.h:ring_shared *)
+cstruct ring_shared {
+  uint32_t cons;
+  uint32_t prod
+} as little_endian
+
+(* matches xen/include/public/io/libxenvchan.h:vchan_interface *)
+cstruct vchan_interface {
+  uint8_t left[8];  (* ring_shared *)
+  uint8_t right[8]; (* ring_shared *)
   uint16_t left_order;
   uint16_t right_order;
   uint8_t cli_live;
@@ -75,8 +80,8 @@ let bit_of_read_write = function
   | Read -> 1 | Write -> 2
 
 let update get set ring f = set ring (f (get ring))
-let update_cli_notify = update get_ring_hdr_cli_notify set_ring_hdr_cli_notify
-let update_srv_notify = update get_ring_hdr_srv_notify set_ring_hdr_srv_notify
+let update_cli_notify = update get_vchan_interface_cli_notify set_vchan_interface_cli_notify
+let update_srv_notify = update get_vchan_interface_srv_notify set_vchan_interface_srv_notify
 
 let set_notify update ring rdwr =
   let bit = bit_of_read_write rdwr in
@@ -93,4 +98,10 @@ let clear_cli_notify = clear_notify update_cli_notify
 let clear_srv_notify = clear_notify update_srv_notify
 
 
-
+type t = {
+  ring: Cstruct.t;
+  evtchn: int;
+  server: bool;
+  persistent: bool;
+  blocking: bool;
+}
