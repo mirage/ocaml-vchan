@@ -170,7 +170,7 @@ let listen ~read_size ~write_size ~allow_reconnection =
 
   (* Initialise the payload buffers *)
   let suitable_locations requested_size =
-    List.filter (fun bl -> length_available_at_buffer_location >= requested_size)
+    List.filter (fun bl -> length_available_at_buffer_location bl >= requested_size)
       legal_buffer_locations in
 
   (* Use the smallest amount of buffer space for read and write buffers.
