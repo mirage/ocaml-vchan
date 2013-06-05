@@ -47,16 +47,10 @@ type buffer_location =
   | Offset2048      (* 2048-byte ring at offset 2048 in shared page *)
   | External of int (* 2 ^^ x pages in use *)
 
-let rec raise_to_the_power a = function
-  | 0 -> 1
-  | b when b > 0 -> a * (raise_to_the_power a (b - 1))
-  | _ -> raise (Invalid_argument "raise_to_the_power")
-let ( ^^ ) = raise_to_the_power
-
 let length_available_at_buffer_location = function
   | Offset1024 -> 1024
   | Offset2048 -> 2048
-  | External x -> 2 ^^ x * 4096
+  | External x -> 1 lsl (x + 12)
 
 (* Any more than (External 8) will generate too many grants to fit
    in the page, if both sides attempt it. *)
@@ -197,7 +191,7 @@ let listen ~read_size ~write_size ~allow_reconnection =
   | Offset1024 -> Cstruct.sub vchan_interface 1024 (length_available_at_buffer_location Offset1024), []
   | Offset2048 -> Cstruct.sub vchan_interface 2048 (length_available_at_buffer_location Offset2048), []
   | External n ->
-    let buffer = Io_page.get ~pages_per_block:(2 ^^ n) () in
+    let buffer = Io_page.get ~pages_per_block:(1 lsl n) () in
     let pages = Io_page.to_pages buffer in
     buffer, pages in
 
