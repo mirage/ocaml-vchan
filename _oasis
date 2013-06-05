@@ -14,3 +14,10 @@ Library vchan
   Modules:            Vchan
   BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax
 
+Document api
+  Title: Documentation and API reference
+  Type: ocamlbuild (0.3)
+  BuildTools+: ocamldoc
+  XOcamlbuildPath: doc
+  XOcamlbuildModules: Vchan
+  Install: false
