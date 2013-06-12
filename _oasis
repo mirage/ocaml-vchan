@@ -2,7 +2,7 @@ OASISFormat: 0.3
 Name:        vchan
 Version:     0.1.0
 Synopsis:    Xen libvchan protocol implementation
-Authors:     David Scott
+Authors:     David Scott, Vincent Bernardoff
 License:     ISC
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
@@ -12,7 +12,7 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax
+  BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.unix, xenctrl.lwt
 
 Document api
   Title: Documentation and API reference
