@@ -13,6 +13,7 @@ Library vchan
   Findlibname:        vchan
   Modules:            Vchan
   BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.unix, xenctrl.lwt
+  CSources:           vchan_stubs.c
 
 Document api
   Title: Documentation and API reference

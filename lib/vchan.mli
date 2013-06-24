@@ -39,6 +39,14 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
     | Connected (** when both sides are open *)
     | WaitingForConnection (** (server only) where no client has yet connected *)
 
+  exception Not_connected of state
+  (** Exception raised when trying to use a handler that is not
+      currently connected to an endpoint. *)
+
+  exception Ring_too_small
+  (** Exception raised when sending a message longer than the size of
+      the ring. *)
+
   val server : domid:int -> xs_path:string -> read_size:int
     -> write_size:int -> allow_reconnection:bool -> t
   (** [server ~domid ~xs_path ~read_size ~write_size
@@ -53,52 +61,50 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
       communicate with domain [~domid] using connection information
       from [~xs_path]. *)
 
-  val close : t -> unit
+  val close : t -> unit Lwt.t
   (** Close a vchan. This deallocates the vchan and attempts to free
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)
 
-  val read : ?count:int -> t -> string
+  val read : ?count:int -> t -> string Lwt.t
   (** [read ?count vch] read at most [count] characters from [vch]. It
       returns [""] if insufficient data is available. *)
 
-  val read_into : t -> string -> int -> int -> int
+  val read_into : t -> string -> int -> int -> int Lwt.t
   (** [read_into vch buf off len] reads up to [len] bytes, stores them
       in [buf] at offset [off], and returns the number of bytes
       read. *)
 
-  val read_into_exactly : t -> string -> int -> int -> unit
+  val read_into_exactly : t -> string -> int -> int -> unit Lwt.t
   (** [read_into_exactly vch buf off len] reads exactly [len] bytes from
       [vch] and stores them in [buf] at offset [off].
 
       Raises [End_of_file] if insufficient data is available. *)
 
-  val write : t -> string -> unit
-  (** [write vch buf] writes [buf] to [vch].
+  val write : t -> string -> unit Lwt.t
+  (** [write vch buf] writes [buf] to the ring if enough space is
+      available, or do not write anything and raises [End_of_file]
+      otherwise. *)
 
-      Raises [End_of_file] if unsufficient space is available on the
-      ring. *)
-
-  val write_from : t -> string -> int -> int -> int
+  val write_from : t -> string -> int -> int -> int Lwt.t
   (** [write_from vch buf off len] writes up to [len] bytes of [buf]
       starting at [off] to [vch] and returns the number of bytes
       actually written. *)
 
-  val write_from_exactly : t -> string -> int -> int -> unit
-  (** [write_from_exactly vch buf off len] writes exactly [len] bytes to
-      [vch] from buffer [buf] at offset [off].
+  val write_from_exactly : t -> string -> int -> int -> unit Lwt.t
+  (** [write_from_exactly vch buf off len] writes exactly [len] bytes
+      to [vch] from buffer [buf] at offset [off] if enough space is
+      available, or do not write anything and raises [End_of_file]
+      otherwise. *)
 
-      Raises [End_of_file] if insufficient space is available on the
-      ring. *)
+  val is_open : t -> state
+  (** [is_open vch] is the state of a vchan connection. *)
 
-  val state : t -> state
-  (** [state vch] is the state of a vchan endpoint. *)
-
-  val data_ready : t -> int32
+  val data_ready : t -> int
   (** [data_ready vch] is the amount of data ready to be read on [vch],
       in bytes. *)
 
-  val buffer_space : t -> int32
+  val buffer_space : t -> int
   (** [buffer_space vch] is the amount of data it is currently possible
       to send on [vch]. *)
 

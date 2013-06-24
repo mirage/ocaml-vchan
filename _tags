@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 20e635fcb8f0425e8630ab29890d58c9)
+# DO NOT EDIT (digest: d26893b187725eade27f54bbd2a9bb02)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,12 +15,19 @@
 "_darcs": not_hygienic
 # Library vchan
 "lib/vchan.cmxs": use_vchan
+<lib/vchan.{cma,cmxa}>: use_libvchan_stubs
 <lib/*.ml{,i}>: pkg_lwt
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_cstruct.syntax
 <lib/*.ml{,i}>: pkg_xenstore.client
 <lib/*.ml{,i}>: pkg_xenstore_transport.unix
 <lib/*.ml{,i}>: pkg_xenctrl.lwt
+"lib/vchan_stubs.c": pkg_lwt
+"lib/vchan_stubs.c": pkg_cstruct
+"lib/vchan_stubs.c": pkg_cstruct.syntax
+"lib/vchan_stubs.c": pkg_xenstore.client
+"lib/vchan_stubs.c": pkg_xenstore_transport.unix
+"lib/vchan_stubs.c": pkg_xenctrl.lwt
 # OASIS_STOP
 <*/*.ml>: syntax_camlp4o
 <lib/vchan>: pkg_cstruct.syntax
