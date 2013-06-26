@@ -17,11 +17,10 @@
 (** Client and server interface for Xen's vchan protocol. *)
 
 module type PAGE_ALLOCATOR = sig
-  val get: ?pages_per_block:int -> unit -> Cstruct.t
-  (** [get ~ppb ()] shall allocate a memory block of size [~ppb] pages
-      (default 1 page). *)
+  val get: int -> Cstruct.buffer
+  (** [get n] shall allocate a memory block of size n pages *)
 
-  val to_pages: Cstruct.t -> Cstruct.t list
+  val to_pages: Cstruct.buffer -> Cstruct.buffer list
   (** [to_pages block] shall return a list of [n] blocks of size one
       page each. *)
 end
@@ -43,12 +42,8 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
   (** Exception raised when trying to use a handler that is not
       currently connected to an endpoint. *)
 
-  exception Ring_too_small
-  (** Exception raised when sending a message longer than the size of
-      the ring. *)
-
   val server : domid:int -> xs_path:string -> read_size:int
-    -> write_size:int -> allow_reconnection:bool -> t
+    -> write_size:int -> allow_reconnection:bool -> t Lwt.t
   (** [server ~domid ~xs_path ~read_size ~write_size
       ~allow_reconnection] initializes a vchan server listening to
       connections from domain [~domid], using connection information
@@ -56,7 +51,7 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
       ring of size [~write_size], which accepts reconnections
       depending on the value of [~allow_reconnection]. *)
 
-  val client : domid:int -> xs_path:string -> t
+  val client : domid:int -> xs_path:string -> t Lwt.t
   (** [client ~domid ~xs_path] initializes a vchan client to
       communicate with domain [~domid] using connection information
       from [~xs_path]. *)
@@ -66,8 +61,8 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)
 
-  val read : ?count:int -> t -> string Lwt.t
-  (** [read ?count vch] read at most [count] characters from [vch]. It
+  val read : t -> int -> string Lwt.t
+  (** [read count vch] read at most [count] characters from [vch]. It
       returns [""] if insufficient data is available. *)
 
   val read_into : t -> string -> int -> int -> int Lwt.t
@@ -97,8 +92,8 @@ module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
       available, or do not write anything and raises [End_of_file]
       otherwise. *)
 
-  val is_open : t -> state
-  (** [is_open vch] is the state of a vchan connection. *)
+  val state : t -> state
+  (** [state vch] is the state of a vchan connection. *)
 
   val data_ready : t -> int
   (** [data_ready vch] is the amount of data ready to be read on [vch],

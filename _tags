@@ -32,3 +32,4 @@
 <*/*.ml>: syntax_camlp4o
 <lib/vchan>: pkg_cstruct.syntax
 <lib>: include
+true: annot

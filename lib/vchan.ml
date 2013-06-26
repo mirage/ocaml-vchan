@@ -15,16 +15,21 @@
  *)
 
 
-module Xs = Xs_client.Client (Xs_transport_lwt_unix_client)
+module Xs = Xs_client_lwt.Client (Xs_transport_lwt_unix_client)
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
 
+let ( >>= ) = Lwt.bind
+let ( >> ) a b = a >>= fun () -> b
+
+let i_int (i:int) = ignore i
 
 module Int32 = struct
   include Int32
 
   let ( - ) = Int32.sub
+  let ( + ) = Int32.add
 end
 
 (* GCC atomic stuff *)
@@ -124,121 +129,43 @@ let clear_notify update ring rdwr =
 let clear_cli_notify = clear_notify update_cli_notify
 let clear_srv_notify = clear_notify update_srv_notify
 
+type server_params =
+  {
+    persist: bool;
+    shared_page_shr: Gnt.Gntshr.share;
+    read_shr: Gnt.Gntshr.share option;
+    write_shr: Gnt.Gntshr.share option
+  }
 
-(* A single 'ring' is used for each direction of transfer *)
-type ring = {
-  data: Cstruct.t;            (* the shared data buffer *)
-  pages: Cstruct.t list;      (* pages to be granted *)
-}
+type client_params =
+  {
+    shared_page_mapping: Gnt.Gnttab.Local_mapping.t;
+    read_mapping: Gnt.Gnttab.Local_mapping.t option;
+    write_mapping: Gnt.Gnttab.Local_mapping.t option
+  }
 
 (* Vchan peers are explicitly client or servers *)
 type role =
-  | Server of bool            (* true if we allow reconnection *)
-  | Client
+  (* true if we allow reconnection *)
+  | Server of server_params
+  | Client of client_params
 
 module type PAGE_ALLOCATOR = sig
-  val get: ?pages_per_block:int -> unit -> Cstruct.t
-  val to_pages: Cstruct.t -> Cstruct.t list
+  val get: int -> Cstruct.buffer
+  val to_pages: Cstruct.buffer -> Cstruct.buffer list
 end
 
 module Make (Io_page: PAGE_ALLOCATOR) = struct
 
 (* The state of a single vchan peer *)
 type t = {
-  vchan_interface: Cstruct.t; (* the shared metadata *)
+  shared_page: Cstruct.t; (* the shared metadata *)
   role: role;
-  read: ring; (* the ring where you read data from *)
-  write: ring; (* the ring where you write data to *)
+  read: Cstruct.t; (* the ring where you read data from *)
+  write: Cstruct.t; (* the ring where you write data to *)
   evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
 }
-
-let rd_prod vch = match vch.role with
-  | Client -> get_rp vch.vchan_interface
-  | Server _ -> get_lp vch.vchan_interface
-
-let rd_cons vch = match vch.role with
-  | Client -> get_rc vch.vchan_interface
-  | Server _ -> get_lc vch.vchan_interface
-
-let wr_prod vch = match vch.role with
-  | Client -> get_lp vch.vchan_interface
-  | Server _ -> get_rp vch.vchan_interface
-
-let set_wr_prod vch v = match vch.role with
-  | Client -> set_lp vch.vchan_interface v
-  | Server _ -> set_rp vch.vchan_interface v
-
-let wr_cons vch = match vch.role with
-  | Client -> get_lc vch.vchan_interface
-  | Server _ -> get_rc vch.vchan_interface
-
-let wr_ring_size vch = match vch.role with
-  | Client -> 1 lsl get_lo vch.vchan_interface
-  | Server _ -> 1 lsl get_ro vch.vchan_interface
-
-let rd_ring_size vch = match vch.role with
-  | Client -> 1 lsl get_ro vch.vchan_interface
-  | Server _ -> 1 lsl get_lo vch.vchan_interface
-
-let request_notify vch rdwr =
-  let open Cstruct in
-  let idx = match vch.role with Client -> 21 | Server _ -> 22 in
-  atomic_or_fetch vch.vchan_interface.buffer.{idx} (bit_of_read_write rdwr);
-  Xenctrl.xen_mb ()
-
-let send_notify vch rdwr =
-  let open Cstruct in
-  let idx = match vch.role with Client -> 21 | Server _ -> 22 in
-  Xenctrl.xen_mb ();
-  let prev =
-    atomic_fetch_and vch.vchan_interface.buffer.{idx} (bit_of_read_write rdwr) in
-  if prev lor (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
-
-let fast_get_data_ready vch request =
-  let ready = Int32.(rd_prod vch - rd_cons vch) in
-  if ready >= request then ready else
-    (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch))
-
-let data_ready vch =
-  request_notify vch Write;
-  Int32.(rd_prod vch - rd_cons vch)
-
-let fast_get_buffer_space vch request =
-  let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch) in
-  if ready > request then ready else
-    (
-      request_notify vch Read;
-      wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch)
-    )
-
-let buffer_space vch =
-  request_notify vch Read;
-  Int32.(wr_ring_size vch - (wr_prod vch - wr_cons vch))
-
-let wait vch = Activations.wait vch.evtchn
-
-let _write_from vch buf off len =
-  let real_idx = Int32.(logand (wr_prod vch) (wr_ring_size vch - 1l) |> to_int) in
-  let avail_contig = wr_ring_size vch - real_idx in
-  let avail_contig = if avail_contig > len then len else avail_contig in
-  Xenctrl.xen_mb ();
-  Cstruct.blit_from_string buf off vch.write.data real_idx avail_contig;
-  (if avail_contig < len then (* We rolled across the end of the ring *)
-    Cstruct.blit_from_string buf off vch.write.data 0 (len - avail_contig));
-  Xenctrl.xen_wmb ();
-  set_wr_prod vch (wr_prod vch + len);
-  send_notify vch Write;
-  len
-
-let rec write_from vch buf off len =
-  if not is_open vch then raise Not_connected
-  else
-    let avail = fast_get_buffer_space vch len in
-    if len <= avail then Lwt.return (_write_from vch buf off len)
-    else
-      if len > wr_ring_size vch then raise Ring_too_small
-      else wait vch >> write_from vch buf off len
 
 type state =
   | Exited
@@ -246,7 +173,6 @@ type state =
   | WaitingForConnection
 
 exception Not_connected of state
-exception Ring_too_small
 
 let state_of_live = function
   | 0 -> Ok Exited
@@ -259,7 +185,160 @@ let live_of_state = function
   | Connected -> 1
   | WaitingForConnection -> 2
 
-let server ~domid ~xs_path ~read_size ~write_size ~allow_reconnection =
+let rd_prod vch = match vch.role with
+  | Client _ -> get_rp vch.shared_page
+  | Server _ -> get_lp vch.shared_page
+
+let rd_cons vch = match vch.role with
+  | Client _ -> get_rc vch.shared_page
+  | Server _ -> get_lc vch.shared_page
+
+let set_rd_cons vch = match vch.role with
+  | Client _ -> set_rc vch.shared_page
+  | Server _ -> set_lc vch.shared_page
+
+let wr_prod vch = match vch.role with
+  | Client _ -> get_lp vch.shared_page
+  | Server _ -> get_rp vch.shared_page
+
+let set_wr_prod vch v = match vch.role with
+  | Client _ -> set_lp vch.shared_page v
+  | Server _ -> set_rp vch.shared_page v
+
+let wr_cons vch = match vch.role with
+  | Client _ -> get_lc vch.shared_page
+  | Server _ -> get_rc vch.shared_page
+
+let wr_ring_size vch = match vch.role with
+  | Client _ -> 1 lsl get_lo vch.shared_page
+  | Server _ -> 1 lsl get_ro vch.shared_page
+
+let rd_ring_size vch = match vch.role with
+  | Client _ -> 1 lsl get_ro vch.shared_page
+  | Server _ -> 1 lsl get_lo vch.shared_page
+
+let request_notify vch rdwr =
+  let open Cstruct in
+  let idx = match vch.role with Client _ -> 21 | Server _ -> 22 in
+  atomic_or_fetch vch.shared_page.buffer.{idx} (bit_of_read_write rdwr);
+  Xenctrl.xen_mb ()
+
+let send_notify vch rdwr =
+  let open Cstruct in
+  let idx = match vch.role with Client _ -> 21 | Server _ -> 22 in
+  Xenctrl.xen_mb ();
+  let prev =
+    atomic_fetch_and vch.shared_page.buffer.{idx} (bit_of_read_write rdwr) in
+  if prev lor (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
+
+let fast_get_data_ready vch request =
+  let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
+  if ready >= request then ready else
+    (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch |> to_int))
+
+let data_ready vch =
+  request_notify vch Write;
+  Int32.(rd_prod vch - rd_cons vch |> to_int)
+
+let fast_get_buffer_space vch request =
+  let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int) in
+  if ready > request then ready else
+    (
+      request_notify vch Read;
+      wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
+    )
+
+let buffer_space vch =
+  request_notify vch Read;
+  wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
+
+let wait vch = Activations.wait vch.evtchn
+
+let state vch =
+  let client_state =
+    match state_of_live (get_vchan_interface_cli_live vch.shared_page)
+    with Ok st -> st | _ -> raise (Invalid_argument "cli_live")
+  and server_state =
+    match state_of_live (get_vchan_interface_srv_live vch.shared_page)
+    with Ok st -> st | _ -> raise (Invalid_argument "srv_live") in
+  match vch.role with
+  | Server { persist } -> if persist then Connected else client_state
+  | Client _ -> server_state
+
+let _write_unsafe vch buf off len =
+  let real_idx = Int32.(logand (wr_prod vch) (of_int (wr_ring_size vch) - 1l) |> to_int) in
+  let avail_contig = wr_ring_size vch - real_idx in
+  let avail_contig = if avail_contig > len then len else avail_contig in
+  Xenctrl.xen_mb ();
+  Cstruct.blit_from_string buf off vch.write real_idx avail_contig;
+  (if avail_contig < len then (* We rolled across the end of the ring *)
+    Cstruct.blit_from_string buf off vch.write 0 (len - avail_contig));
+  Xenctrl.xen_wmb ();
+  set_wr_prod vch Int32.(wr_prod vch + of_int len);
+  send_notify vch Write;
+  len
+
+let rec write_from_exactly vch buf off len =
+  if state vch <> Connected then raise (Not_connected (state vch))
+  else
+    let avail = fast_get_buffer_space vch len in
+    if len <= avail then Lwt.return (_write_unsafe vch buf off len |> i_int)
+    else
+    if len > wr_ring_size vch then raise End_of_file
+    else wait vch >> write_from_exactly vch buf off len
+
+let write_from vch buf off len =
+  if state vch <> Connected then raise (Not_connected (state vch))
+  else
+    let rec inner pos =
+      let avail = fast_get_buffer_space vch (len - pos) in
+      let avail = if pos + avail > len then len - pos else avail in
+      let pos = if avail > 0 then pos + _write_unsafe vch buf pos avail else pos in
+      if pos = len then Lwt.return pos else wait vch >> inner pos
+    in inner 0
+
+let write vch buf =
+  let buflen = String.length buf in
+  write_from vch buf 0 buflen >>= fun len ->
+  if len <> buflen then Lwt.fail End_of_file else Lwt.return ()
+
+let _read_unsafe_into vch buf len =
+  let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
+  let avail_contig = rd_ring_size vch - real_idx in
+  let avail_contig = if avail_contig > len then len else avail_contig in
+  let buf = String.create len in
+  Xenctrl.xen_rmb ();
+  Cstruct.blit_to_string vch.read real_idx buf 0 avail_contig;
+  (if avail_contig < len then
+     Cstruct.blit_to_string vch.read 0 buf avail_contig (len - avail_contig)
+  );
+  Xenctrl.xen_mb ();
+  set_rd_cons vch Int32.(rd_cons vch + of_int len);
+  send_notify vch Read;
+  len
+
+let rec read_into_exactly vch buf off len =
+  if state vch <> Connected then raise (Not_connected (state vch))
+  else
+    let avail = fast_get_data_ready vch len in
+    if len <= avail then Lwt.return (_read_unsafe_into vch buf len |> i_int)
+    else
+    if len > rd_ring_size vch then raise End_of_file
+    else wait vch >> read_into_exactly vch buf off len
+
+let rec read_into vch buf off len =
+  if state vch <> Connected then raise (Not_connected (state vch))
+  else
+    let avail = fast_get_data_ready vch len in
+    let len = if avail > 0 && len > avail then avail else len in
+    if avail > 0 then Lwt.return (_read_unsafe_into vch buf len)
+    else wait vch >> read_into vch buf off len
+
+let read vch count =
+  let buf = String.create count in
+  read_into vch buf 0 count >>= fun len -> Lwt.return (String.sub buf 0 len)
+
+let server ~domid ~xs_path ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -269,7 +348,9 @@ let server ~domid ~xs_path ~read_size ~write_size ~allow_reconnection =
      the 'server' *)
 
   (* Allocate and initialise the shared page *)
-  let v = Io_page.get () in
+  let gntshr_h = Gnt.Gntshr.interface_open () in
+  let shared_page_shr = Gnt.Gntshr.share_pages_exn gntshr_h domid 1 true in
+  let v = Cstruct.of_bigarray Gnt.Gntshr.(shared_page_shr.mapping) in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -304,28 +385,34 @@ let server ~domid ~xs_path ~read_size ~write_size ~allow_reconnection =
   set_vchan_interface_left_order v (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
-  | Offset1024 -> Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024), []
-  | Offset2048 -> Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048), []
+  | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
+  | Offset2048 -> None, Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048)
   | External n ->
-    let buffer = Io_page.get ~pages_per_block:(1 lsl n) () in
-    let pages = Io_page.to_pages buffer in
-    buffer, pages in
+    let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
+    let pages = Gnt.Gntshr.(share.mapping) in
+    Some share, Cstruct.of_bigarray pages in
 
-  let data, pages = allocate_buffer_locations write_l in
-  let write = { data; pages } in
-  let data, pages = allocate_buffer_locations read_l in
-  let read = { data; pages } in
+  let write_shr, write_buf = allocate_buffer_locations write_l in
+  let read_shr, read_buf = allocate_buffer_locations read_l in
 
   (* Allocate the event channel *)
   let evtchn_h = Eventchn.init () in
   let evtchn = Eventchn.bind_unbound_port evtchn_h domid in
 
   (* Write the config to XenStore *)
+  let ring_ref = Gnt.(string_of_grant_table_index (List.hd shared_page_shr.Gntshr.refs)) in
+  Xs.make ()
+  >>= fun xsc ->
+  Xs.(transaction xsc
+        (fun xsh -> mkdir xsh xs_path
+          >> write xsh (xs_path ^ "ring-ref") ring_ref
+          >> write xsh (xs_path ^ "event-channel") (string_of_int (Eventchn.to_int evtchn))
+        ))
+  >>
 
-  let role = Server allow_reconnection in
-  { vchan_interface=v; role; read; write; evtchn_h; evtchn }
-
-let ( >>= ) = Lwt.bind
+  (* Return the shared structure *)
+  let role = Server { persist; shared_page_shr; read_shr; write_shr } in
+  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
 let client ~domid ~xs_path =
   let get_gntref_and_evtchn () =
@@ -344,10 +431,11 @@ let client ~domid ~xs_path =
   (* Map the vchan interface page *)
   let gnt_iface = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map gnt_iface { domid; ref=gntref } true) in
-  let vchan_intf_page = match mapping with
+  let mapping = match mapping with
     | None -> raise (Failure "Unable to map the vchan interface page.")
-    | Some p -> Gnt.Gnttab.Local_mapping.to_buf p in
-  let vchan_intf_cstruct = Cstruct.of_bigarray vchan_intf_page in
+    | Some p -> p in
+  let vchan_intf_cstruct = Cstruct.of_bigarray
+      (Gnt.Gnttab.Local_mapping.to_buf mapping) in
 
   (* Bind the event channel *)
   let evtchn_h = Eventchn.init () in
@@ -358,18 +446,9 @@ let client ~domid ~xs_path =
     let lo = get_lo v in
     let ro = get_ro v in
     match lo, ro with
-      | 10, 10 ->
-        { data=Cstruct.sub v 1024 1024; pages=[] },
-        { data=Cstruct.sub v 2048 1024; pages=[] }
-
-      | 10, 11 ->
-        { data=Cstruct.sub v 1024 1024; pages=[] },
-        { data=Cstruct.sub v 2048 2048; pages=[] }
-
-      | 11, 10 ->
-        { data=Cstruct.sub v 2048 2048; pages=[] },
-        { data=Cstruct.sub v 1024 1024; pages=[] }
-
+      | 10, 10 -> Cstruct.sub v 1024 1024, Cstruct.sub v 2048 1024
+      | 10, 11 -> Cstruct.sub v 1024 1024, Cstruct.sub v 2048 2048
+      | 11, 10 -> Cstruct.sub v 2048 2048, Cstruct.sub v 1024 1024
       | 11, 11 ->
         let gntref = Gnt.grant_table_index_of_int32
           (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface) in
@@ -400,7 +479,7 @@ let client ~domid ~xs_path =
         let lgrants_pages = (match Gnt.Gnttab.(mapv gnt_iface lgrants true) with
           | None -> raise (Failure "Unable to map the left pages.")
           | Some p -> Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf p)) in
-        let rgrants_pages = (match Gnt.Gnttab.(mapv gnt_iface lgrants true) with
+        let rgrants_pages = (match Gnt.Gnttab.(mapv gnt_iface rgrants true) with
           | None -> raise (Failure "Unable to map the right pages.")
           | Some p -> Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf p)) in
         { data=lgrants_pages; pages=Io_page.to_pages lgrants_pages },
@@ -409,21 +488,13 @@ let client ~domid ~xs_path =
       | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
 
   let write, read = rings_of_vchan_intf vchan_intf_cstruct in
-  Lwt.return { vchan_interface=vchan_intf_cstruct; role=Client; read; write; evtchn_h; evtchn }
+  Lwt.return { shared_page=vchan_intf_cstruct; role=Client; read; write; evtchn_h; evtchn }
 
 (* TODO: Properly unallocate shared pages here. *)
-let close vch = Lwt.return ()
+let close vch =
+  
+  Lwt.return ()
 
-let is_open vch =
-  let client_state =
-    match state_of_live (get_vchan_interface_cli_live vch.vchan_interface)
-    with Ok st -> st | _ -> raise (Invalid_argument "cli_live")
-  and server_state =
-    match state_of_live (get_vchan_interface_srv_live vch.vchan_interface)
-    with Ok st -> st | _ -> raise (Invalid_argument "srv_live") in
-  match vch.role with
-  | Server persist -> if persist then Connected else client_state
-  | Client -> server_state
 
 
 end
