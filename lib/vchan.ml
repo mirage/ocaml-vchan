@@ -299,8 +299,7 @@ let write_from vch buf off len =
 
 let write vch buf =
   let buflen = String.length buf in
-  write_from vch buf 0 buflen >>= fun len ->
-  if len <> buflen then Lwt.fail End_of_file else Lwt.return ()
+  write_from vch buf 0 buflen >>= fun len -> Lwt.return (i_int len)
 
 let _read_unsafe_into vch buf len =
   let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in

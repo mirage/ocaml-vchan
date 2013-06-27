@@ -12,14 +12,14 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.unix, xenctrl.lwt
+  BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.lwt, xenctrl.lwt
   CSources:           vchan_stubs.c
 
 Executable node
   CompiledObject: best
   Path: test
   MainIs: node.ml
-  BuildDepends: cmdliner, vchan
+  BuildDepends: lwt, cmdliner, vchan
 
 Document api
   Title: Documentation and API reference

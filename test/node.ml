@@ -1,5 +1,7 @@
 open Cmdliner
 
+let (>>=) = Lwt.bind
+
 type clisrv = Client | Server
 
 let clisrv_pa = function
@@ -38,11 +40,39 @@ let nodepath = Arg.(required & pos 3 (some string) None &
                     info ~docv:"NODEPATH" ~doc:"XenStore path of the config." [])
 
 
-let node clisrv rw domid nodepath = ()
+let buf = String.create 5000
+
+let node clisrv rw domid nodepath : unit Lwt.t =
+  let th =
+    (match clisrv with
+     | Client -> Vchan.client ~domid ~xs_path:nodepath
+     | Server -> Vchan.server ~domid ~xs_path:nodepath
+                   ~read_size:5000 ~write_size:5000 ~persist:true)
+        >>= fun vch -> match rw with
+        | Read ->
+          let rec read_forever cli =
+            Vchan.read_into cli buf 0 5000
+            >>= fun nb_read ->
+            Lwt_io.write_from_exactly Lwt_io.stdout buf 0 nb_read
+            >>= fun () -> read_forever cli
+          in
+          Vchan.client ~domid ~xs_path:nodepath
+          >>= fun cli -> read_forever cli
+
+        | Write ->
+          let rec stdin_to_endpoint cli =
+            Lwt_io.read_line Lwt_io.stdin
+            >>= fun line -> Vchan.write cli (line ^ "\n")
+            >>= fun () -> stdin_to_endpoint cli
+          in
+          Vchan.client ~domid ~xs_path:nodepath
+          >>= fun cli -> stdin_to_endpoint cli
+  in Lwt_main.run th
 
 let cmd =
   let doc = "Vchan testing" in
   Term.(pure node $ clisrv $ rw $ domid $ nodepath),
   Term.info "node" ~version:"0.1" ~doc
 
-let () = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
+let () =
+  match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0

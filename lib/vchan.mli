@@ -50,8 +50,7 @@ val close : t -> unit
     still read any data pending prior to the close. *)
 
 val read : t -> int -> string Lwt.t
-(** [read count vch] read at most [count] characters from [vch]. It
-    returns [""] if insufficient data is available. *)
+(** [read count vch] read at most [count] characters from [vch]. *)
 
 val read_into : t -> string -> int -> int -> int Lwt.t
 (** [read_into vch buf off len] reads up to [len] bytes, stores them
@@ -65,20 +64,19 @@ val read_into_exactly : t -> string -> int -> int -> unit Lwt.t
     Raises [End_of_file] if insufficient data is available. *)
 
 val write : t -> string -> unit Lwt.t
-(** [write vch buf] writes [buf] to the ring if enough space is
-    available, or do not write anything and raises [End_of_file]
-    otherwise. *)
+(** [write vch buf] writes [buf] to the ring, and returns when its
+    done (or never).  *)
 
 val write_from : t -> string -> int -> int -> int Lwt.t
 (** [write_from vch buf off len] writes up to [len] bytes of [buf]
-    starting at [off] to [vch] and returns the number of bytes
-    actually written. *)
+    starting at [off] to [vch] and returns [len] eventually (or
+    never). *)
 
 val write_from_exactly : t -> string -> int -> int -> unit Lwt.t
-(** [write_from_exactly vch buf off len] writes exactly [len] bytes
-    to [vch] from buffer [buf] at offset [off] if enough space is
-    available, or do not write anything and raises [End_of_file]
-    otherwise. *)
+(** [write_from_exactly vch buf off len] writes exactly [len] bytes to
+    [vch] from buffer [buf] at offset [off] if enough space is
+    available, or do not write anything and immediately raises
+    [End_of_file] otherwise. *)
 
 val state : t -> state
 (** [state vch] is the state of a vchan connection. *)
