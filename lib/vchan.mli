@@ -16,91 +16,77 @@
 
 (** Client and server interface for Xen's vchan protocol. *)
 
-module type PAGE_ALLOCATOR = sig
-  val get: int -> Cstruct.buffer
-  (** [get n] shall allocate a memory block of size n pages *)
+type t
+(** Type of a vchan handler. *)
 
-  val to_pages: Cstruct.buffer -> Cstruct.buffer list
-  (** [to_pages block] shall return a list of [n] blocks of size one
-      page each. *)
-end
-(** Type of a page allocator. *)
+(** Type of the state of a connection between a vchan client and
+    server. *)
+type state =
+  | Exited (** when one side has called [close] or crashed *)
+  | Connected (** when both sides are open *)
+  | WaitingForConnection (** (server only) where no client has yet connected *)
 
-module Make : functor(Io_page: PAGE_ALLOCATOR) -> sig
+exception Not_connected of state
+(** Exception raised when trying to use a handler that is not
+    currently connected to an endpoint. *)
 
-  type t
-  (** Type of a vchan handler. *)
+val server : domid:int -> xs_path:string -> read_size:int
+  -> write_size:int -> persist:bool -> t Lwt.t
+(** [server ~domid ~xs_path ~read_size ~write_size ~persist]
+    initializes a vchan server listening to connections from domain
+    [~domid], using connection information from [~xs_path], with
+    left ring of size [~read_size] and right ring of size
+    [~write_size], which accepts reconnections depending on the
+    value of [~persist]. *)
 
-  (** Type of the state of a connection between a vchan client and
-      server. *)
-  type state =
-    | Exited (** when one side has called [close] or crashed *)
-    | Connected (** when both sides are open *)
-    | WaitingForConnection (** (server only) where no client has yet connected *)
+val client : domid:int -> xs_path:string -> t Lwt.t
+(** [client ~domid ~xs_path] initializes a vchan client to
+    communicate with domain [~domid] using connection information
+    from [~xs_path]. *)
 
-  exception Not_connected of state
-  (** Exception raised when trying to use a handler that is not
-      currently connected to an endpoint. *)
+val close : t -> unit
+(** Close a vchan. This deallocates the vchan and attempts to free
+    its resources. The other side is notified of the close, but can
+    still read any data pending prior to the close. *)
 
-  val server : domid:int -> xs_path:string -> read_size:int
-    -> write_size:int -> allow_reconnection:bool -> t Lwt.t
-  (** [server ~domid ~xs_path ~read_size ~write_size
-      ~allow_reconnection] initializes a vchan server listening to
-      connections from domain [~domid], using connection information
-      from [~xs_path], with left ring of size [~read_size] and right
-      ring of size [~write_size], which accepts reconnections
-      depending on the value of [~allow_reconnection]. *)
+val read : t -> int -> string Lwt.t
+(** [read count vch] read at most [count] characters from [vch]. It
+    returns [""] if insufficient data is available. *)
 
-  val client : domid:int -> xs_path:string -> t Lwt.t
-  (** [client ~domid ~xs_path] initializes a vchan client to
-      communicate with domain [~domid] using connection information
-      from [~xs_path]. *)
+val read_into : t -> string -> int -> int -> int Lwt.t
+(** [read_into vch buf off len] reads up to [len] bytes, stores them
+    in [buf] at offset [off], and returns the number of bytes
+    read. *)
 
-  val close : t -> unit Lwt.t
-  (** Close a vchan. This deallocates the vchan and attempts to free
-      its resources. The other side is notified of the close, but can
-      still read any data pending prior to the close. *)
+val read_into_exactly : t -> string -> int -> int -> unit Lwt.t
+(** [read_into_exactly vch buf off len] reads exactly [len] bytes from
+    [vch] and stores them in [buf] at offset [off].
 
-  val read : t -> int -> string Lwt.t
-  (** [read count vch] read at most [count] characters from [vch]. It
-      returns [""] if insufficient data is available. *)
+    Raises [End_of_file] if insufficient data is available. *)
 
-  val read_into : t -> string -> int -> int -> int Lwt.t
-  (** [read_into vch buf off len] reads up to [len] bytes, stores them
-      in [buf] at offset [off], and returns the number of bytes
-      read. *)
+val write : t -> string -> unit Lwt.t
+(** [write vch buf] writes [buf] to the ring if enough space is
+    available, or do not write anything and raises [End_of_file]
+    otherwise. *)
 
-  val read_into_exactly : t -> string -> int -> int -> unit Lwt.t
-  (** [read_into_exactly vch buf off len] reads exactly [len] bytes from
-      [vch] and stores them in [buf] at offset [off].
+val write_from : t -> string -> int -> int -> int Lwt.t
+(** [write_from vch buf off len] writes up to [len] bytes of [buf]
+    starting at [off] to [vch] and returns the number of bytes
+    actually written. *)
 
-      Raises [End_of_file] if insufficient data is available. *)
+val write_from_exactly : t -> string -> int -> int -> unit Lwt.t
+(** [write_from_exactly vch buf off len] writes exactly [len] bytes
+    to [vch] from buffer [buf] at offset [off] if enough space is
+    available, or do not write anything and raises [End_of_file]
+    otherwise. *)
 
-  val write : t -> string -> unit Lwt.t
-  (** [write vch buf] writes [buf] to the ring if enough space is
-      available, or do not write anything and raises [End_of_file]
-      otherwise. *)
+val state : t -> state
+(** [state vch] is the state of a vchan connection. *)
 
-  val write_from : t -> string -> int -> int -> int Lwt.t
-  (** [write_from vch buf off len] writes up to [len] bytes of [buf]
-      starting at [off] to [vch] and returns the number of bytes
-      actually written. *)
+val data_ready : t -> int
+(** [data_ready vch] is the amount of data ready to be read on [vch],
+    in bytes. *)
 
-  val write_from_exactly : t -> string -> int -> int -> unit Lwt.t
-  (** [write_from_exactly vch buf off len] writes exactly [len] bytes
-      to [vch] from buffer [buf] at offset [off] if enough space is
-      available, or do not write anything and raises [End_of_file]
-      otherwise. *)
-
-  val state : t -> state
-  (** [state vch] is the state of a vchan connection. *)
-
-  val data_ready : t -> int
-  (** [data_ready vch] is the amount of data ready to be read on [vch],
-      in bytes. *)
-
-  val buffer_space : t -> int
-  (** [buffer_space vch] is the amount of data it is currently possible
-      to send on [vch]. *)
-
-end
+val buffer_space : t -> int
+(** [buffer_space vch] is the amount of data it is currently possible
+    to send on [vch]. *)

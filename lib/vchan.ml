@@ -32,6 +32,11 @@ module Int32 = struct
   let ( + ) = Int32.add
 end
 
+module Opt = struct
+  let map f o = match o with Some e -> Some (f e) | None -> None
+  let iter f o = match o with Some e -> f e | None -> ()
+end
+
 (* GCC atomic stuff *)
 
 external atomic_or_fetch : char -> int -> unit = "stub_atomic_or_fetch" "noalloc"
@@ -132,16 +137,18 @@ let clear_srv_notify = clear_notify update_srv_notify
 type server_params =
   {
     persist: bool;
-    shared_page_shr: Gnt.Gntshr.share;
+    gntshr_h: Gnt.Gntshr.interface;
+    shr_shr: Gnt.Gntshr.share;
     read_shr: Gnt.Gntshr.share option;
     write_shr: Gnt.Gntshr.share option
   }
 
 type client_params =
   {
-    shared_page_mapping: Gnt.Gnttab.Local_mapping.t;
-    read_mapping: Gnt.Gnttab.Local_mapping.t option;
-    write_mapping: Gnt.Gnttab.Local_mapping.t option
+    gnttab_h: Gnt.Gnttab.interface;
+    shr_map: Gnt.Gnttab.Local_mapping.t;
+    read_map: Gnt.Gnttab.Local_mapping.t option;
+    write_map: Gnt.Gnttab.Local_mapping.t option
   }
 
 (* Vchan peers are explicitly client or servers *)
@@ -149,13 +156,6 @@ type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-
-module type PAGE_ALLOCATOR = sig
-  val get: int -> Cstruct.buffer
-  val to_pages: Cstruct.buffer -> Cstruct.buffer list
-end
-
-module Make (Io_page: PAGE_ALLOCATOR) = struct
 
 (* The state of a single vchan peer *)
 type t = {
@@ -349,8 +349,8 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
 
   (* Allocate and initialise the shared page *)
   let gntshr_h = Gnt.Gntshr.interface_open () in
-  let shared_page_shr = Gnt.Gntshr.share_pages_exn gntshr_h domid 1 true in
-  let v = Cstruct.of_bigarray Gnt.Gntshr.(shared_page_shr.mapping) in
+  let shr_shr = Gnt.Gntshr.share_pages_exn gntshr_h domid 1 true in
+  let v = Cstruct.of_bigarray Gnt.Gntshr.(shr_shr.mapping) in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -400,7 +400,7 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   let evtchn = Eventchn.bind_unbound_port evtchn_h domid in
 
   (* Write the config to XenStore *)
-  let ring_ref = Gnt.(string_of_grant_table_index (List.hd shared_page_shr.Gntshr.refs)) in
+  let ring_ref = Gnt.(string_of_grant_table_index (List.hd shr_shr.Gntshr.refs)) in
   Xs.make ()
   >>= fun xsc ->
   Xs.(transaction xsc
@@ -411,7 +411,7 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   >>
 
   (* Return the shared structure *)
-  let role = Server { persist; shared_page_shr; read_shr; write_shr } in
+  let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
 let client ~domid ~xs_path =
@@ -429,11 +429,8 @@ let client ~domid ~xs_path =
   in
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
   (* Map the vchan interface page *)
-  let gnt_iface = Gnt.Gnttab.interface_open () in
-  let mapping = Gnt.Gnttab.(map gnt_iface { domid; ref=gntref } true) in
-  let mapping = match mapping with
-    | None -> raise (Failure "Unable to map the vchan interface page.")
-    | Some p -> p in
+  let gnttab_h = Gnt.Gnttab.interface_open () in
+  let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
   let vchan_intf_cstruct = Cstruct.of_bigarray
       (Gnt.Gnttab.Local_mapping.to_buf mapping) in
 
@@ -446,17 +443,15 @@ let client ~domid ~xs_path =
     let lo = get_lo v in
     let ro = get_ro v in
     match lo, ro with
-      | 10, 10 -> Cstruct.sub v 1024 1024, Cstruct.sub v 2048 1024
-      | 10, 11 -> Cstruct.sub v 1024 1024, Cstruct.sub v 2048 2048
-      | 11, 10 -> Cstruct.sub v 2048 2048, Cstruct.sub v 1024 1024
+      | 10, 10 -> (None, Cstruct.sub v 1024 1024), (None, Cstruct.sub v 2048 1024)
+      | 10, 11 -> (None, Cstruct.sub v 1024 1024), (None, Cstruct.sub v 2048 2048)
+      | 11, 10 -> (None, Cstruct.sub v 2048 2048), (None, Cstruct.sub v 1024 1024)
       | 11, 11 ->
         let gntref = Gnt.grant_table_index_of_int32
           (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface) in
-        (match Gnt.Gnttab.(map gnt_iface { domid; ref=gntref } true) with
-          | None -> failwith "Gnttab.map"
-          | Some p -> let p = Gnt.Gnttab.Local_mapping.to_buf p in
-            { data=Cstruct.sub v 2048 2048; pages=[] },
-            { data=Cstruct.of_bigarray p; pages=[] })
+        let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
+        (None, Cstruct.sub v 2048 2048),
+        (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping))
 
       | n, m when n > 9 && m > 9 ->
         let pages_to_map order = 1 lsr (order - 12) in
@@ -464,6 +459,9 @@ let client ~domid ~xs_path =
         let rpages_nb = pages_to_map ro in
         let lgrants = Array.make lpages_nb 0l in
         let rgrants = Array.make rpages_nb 0l in
+
+        (* Reading grant refs from the shared page and load them into
+           the arrays just created. *)
         let lgrants =
           for i = 0 to lpages_nb - 1 do
             lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct (sizeof_vchan_interface + i*4)
@@ -476,25 +474,37 @@ let client ~domid ~xs_path =
           done;  List.map
             (fun gntref -> Gnt.Gnttab.({ domid; ref=Gnt.grant_table_index_of_int32 gntref }))
               (Array.to_list rgrants) in
-        let lgrants_pages = (match Gnt.Gnttab.(mapv gnt_iface lgrants true) with
-          | None -> raise (Failure "Unable to map the left pages.")
-          | Some p -> Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf p)) in
-        let rgrants_pages = (match Gnt.Gnttab.(mapv gnt_iface rgrants true) with
-          | None -> raise (Failure "Unable to map the right pages.")
-          | Some p -> Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf p)) in
-        { data=lgrants_pages; pages=Io_page.to_pages lgrants_pages },
-        { data=rgrants_pages; pages=Io_page.to_pages rgrants_pages }
+
+        (* Use the grant refs arrays to map left and right pages. *)
+        let lgrants_map =
+          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h lgrants true) in
+          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+
+        let rgrants_map =
+          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h rgrants true) in
+          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+        lgrants_map, rgrants_map
 
       | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
 
-  let write, read = rings_of_vchan_intf vchan_intf_cstruct in
-  Lwt.return { shared_page=vchan_intf_cstruct; role=Client; read; write; evtchn_h; evtchn }
+  let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
+  let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
+  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
 
-(* TODO: Properly unallocate shared pages here. *)
 let close vch =
-  
-  Lwt.return ()
+  (* C impl. notify before shutting down the event channel
+     interface. *)
+  Eventchn.notify vch.evtchn_h vch.evtchn;
+  i_int (Eventchn.close vch.evtchn_h);
+  match vch.role with
+  | Client { gnttab_h; shr_map; read_map; write_map } ->
+    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) read_map;
+    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) write_map;
+    Gnt.Gnttab.unmap_exn gnttab_h shr_map;
+    Gnt.Gnttab.interface_close gnttab_h
 
-
-
-end
+  | Server { gntshr_h; shr_shr; read_shr; write_shr } ->
+    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) read_shr;
+    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
+    Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
+    Gnt.Gntshr.interface_close gntshr_h
