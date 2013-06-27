@@ -15,6 +15,12 @@ Library vchan
   BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.unix, xenctrl.lwt
   CSources:           vchan_stubs.c
 
+Executable node
+  CompiledObject: best
+  Path: test
+  MainIs: node.ml
+  BuildDepends: cmdliner, vchan
+
 Document api
   Title: Documentation and API reference
   Type: ocamlbuild (0.3)
