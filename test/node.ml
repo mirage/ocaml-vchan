@@ -45,28 +45,34 @@ let buf = String.create 5000
 let node clisrv rw domid nodepath : unit Lwt.t =
   let th =
     (match clisrv with
-     | Client -> Vchan.client ~domid ~xs_path:nodepath
-     | Server -> Vchan.server ~domid ~xs_path:nodepath
-                   ~read_size:5000 ~write_size:5000 ~persist:true)
-        >>= fun vch -> match rw with
+     | Client ->
+       Printf.printf "I'm a client, connecting to domid %d using xs_path %s.\n%!" domid nodepath;
+       Vchan.client ~domid ~xs_path:nodepath
+     | Server ->
+       Printf.printf "Initializing Server domid=%d xs_path=%s.\n%!" domid nodepath;
+       Vchan.server ~domid ~xs_path:nodepath
+         ~read_size:5000 ~write_size:5000 ~persist:true)
+        >>= fun vch ->
+        Printf.printf "Initialization done!\n%!";
+        match rw with
         | Read ->
-          let rec read_forever cli =
-            Vchan.read_into cli buf 0 5000
+          let rec read_forever vch =
+            Printf.printf "Reading forever loop.\n%!";
+            Vchan.read_into vch buf 0 5000
             >>= fun nb_read ->
             Lwt_io.write_from_exactly Lwt_io.stdout buf 0 nb_read
-            >>= fun () -> read_forever cli
-          in
-          Vchan.client ~domid ~xs_path:nodepath
-          >>= fun cli -> read_forever cli
+            >>= fun () -> read_forever vch
+          in read_forever vch
 
         | Write ->
-          let rec stdin_to_endpoint cli =
+          Printf.printf "Please type something to send to the other endpoint.\n%!";
+          let rec stdin_to_endpoint vch =
+            Printf.printf "> %!";
             Lwt_io.read_line Lwt_io.stdin
-            >>= fun line -> Vchan.write cli (line ^ "\n")
-            >>= fun () -> stdin_to_endpoint cli
+            >>= fun line -> Vchan.write vch (line ^ "\n")
+            >>= fun () -> stdin_to_endpoint vch
           in
-          Vchan.client ~domid ~xs_path:nodepath
-          >>= fun cli -> stdin_to_endpoint cli
+          stdin_to_endpoint vch
   in Lwt_main.run th
 
 let cmd =
