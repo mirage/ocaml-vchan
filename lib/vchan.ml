@@ -419,8 +419,8 @@ let client ~domid ~xs_path =
     >>= fun xs_cli ->
     Xs.(wait xs_cli
           (fun xsh -> directory xsh xs_path >>= function
-            | [a; b] ->     read xsh (xs_path ^ "ring-ref")
-                        >>= fun rref -> read xsh (xs_path ^ "event-channel")
+            | [a; b] ->     read xsh (xs_path ^ "/ring-ref")
+                        >>= fun rref -> read xsh (xs_path ^ "/event-channel")
                         >>= fun evtchn -> Lwt.return (rref, evtchn)
             | _ -> Lwt.fail Xs_protocol.Eagain))
     >>= fun (gntref, evtchn) ->
