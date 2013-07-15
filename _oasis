@@ -21,6 +21,12 @@ Executable node
   MainIs: node.ml
   BuildDepends: lwt, cmdliner, vchan
 
+Executable test_events
+  CompiledObject: best
+  Path: test
+  MainIs: test_events.ml
+  BuildDepends: lwt, vchan
+
 Document api
   Title: Documentation and API reference
   Type: ocamlbuild (0.3)
