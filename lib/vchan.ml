@@ -115,25 +115,6 @@ type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 1 | Write -> 2
 
-let update get set ring f = set ring (f (get ring))
-
-let update_cli_notify = update get_vchan_interface_cli_notify set_vchan_interface_cli_notify
-let update_srv_notify = update get_vchan_interface_srv_notify set_vchan_interface_srv_notify
-
-let set_notify update ring rdwr =
-  let bit = bit_of_read_write rdwr in
-  update ring (fun x -> x lor bit)
-
-let set_cli_notify = set_notify update_cli_notify
-let set_srv_notify = set_notify update_srv_notify
-
-let clear_notify update ring rdwr =
-  let bit = bit_of_read_write rdwr in
-  update ring (fun x -> x land (0xff lxor bit))
-
-let clear_cli_notify = clear_notify update_cli_notify
-let clear_srv_notify = clear_notify update_srv_notify
-
 type server_params =
   {
     persist: bool;
@@ -356,9 +337,8 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   set_lc v 0l;
   set_vchan_interface_cli_live v (live_of_state WaitingForConnection);
   set_vchan_interface_srv_live v (live_of_state Connected);
-  set_vchan_interface_cli_notify v 0;
+  set_vchan_interface_cli_notify v (bit_of_read_write Write);
   set_vchan_interface_srv_notify v 0;
-  set_cli_notify v Write;
 
   (* Initialise the payload buffers *)
   let suitable_locations requested_size =
