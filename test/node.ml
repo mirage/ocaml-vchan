@@ -43,6 +43,10 @@ let nodepath = Arg.(required & pos 3 (some string) None &
 let buf = String.create 5000
 
 let node clisrv rw domid nodepath : unit Lwt.t =
+  (* Initialize the event loop for Xen events (such that
+     Activations.wait works). *)
+  let evtchn_h = Eventchn.init () in
+  Lwt.async (fun () -> Activations.run evtchn_h);
   let th =
     (match clisrv with
      | Client ->
@@ -60,8 +64,9 @@ let node clisrv rw domid nodepath : unit Lwt.t =
             Printf.printf "Reading forever loop.\n%!";
             Vchan.read_into vch buf 0 5000
             >>= fun nb_read ->
-            Lwt_io.write_from_exactly Lwt_io.stdout buf 0 nb_read
-            >>= fun () -> read_forever vch
+            let string_to_print = String.sub buf 0 nb_read in
+            print_endline string_to_print;
+            read_forever vch
           in read_forever vch
 
         | Write ->
