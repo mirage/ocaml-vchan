@@ -21,7 +21,6 @@ external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
 
 let ( >>= ) = Lwt.bind
-let ( >> ) a b = a >>= fun () -> b
 
 let i_int (i:int) = ignore i
 
@@ -45,7 +44,8 @@ external atomic_fetch_and : char -> int -> int = "stub_atomic_fetch_and" "noallo
 (* left is client write, server read
    right is client read, server write *)
 
-(* XXX: the xen headers do not use __attribute__(packed) *)
+(* XXX: the xen headers do not use __attribute__(packed). Edit vb: Was
+   OK for me. *)
 
 (* matches xen/include/public/io/libxenvchan.h:ring_shared *)
 cstruct ring_shared {
@@ -113,7 +113,7 @@ let order_of_buffer_location = function
 
 type read_write = Read | Write
 
-let bit_of_read_write = function Read -> 1 | Write -> 2
+let bit_of_read_write = function Read -> 2 | Write -> 1
 
 type server_params =
   {
@@ -198,19 +198,24 @@ let rd_ring_size vch = match vch.role with
   | Client _ -> 1 lsl get_ro vch.shared_page
   | Server _ -> 1 lsl get_lo vch.shared_page
 
+(* Request notify to the other endpoint. If client, request to server,
+   and vice versa. *)
 let request_notify vch rdwr =
   let open Cstruct in
-  let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
+  (* This should be correct: client -> srv_notify | server -> cli_notify *)
+  let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
   i_int (atomic_or_fetch vch.shared_page.buffer.{idx} (bit_of_read_write rdwr));
   Xenctrl.xen_mb ()
 
 let send_notify vch rdwr =
   let open Cstruct in
+  (* This should be correct: client -> cli_notify | server -> srv_notify *)
   let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
   Xenctrl.xen_mb ();
   let prev =
-    atomic_fetch_and vch.shared_page.buffer.{idx} (bit_of_read_write rdwr) in
-  if prev lor (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
+    (* clear the bit and return previous value *)
+    atomic_fetch_and vch.shared_page.buffer.{idx} (bit_of_read_write rdwr |> lnot) in
+  if prev land (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
 
 let fast_get_data_ready vch request =
   let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
@@ -266,7 +271,7 @@ let rec write_from_exactly vch buf off len =
     if len <= avail then Lwt.return (_write_unsafe vch buf off len |> i_int)
     else
     if len > wr_ring_size vch then raise End_of_file
-    else wait vch >> write_from_exactly vch buf off len
+    else wait vch >>= fun () -> write_from_exactly vch buf off len
 
 let write_from vch buf off len =
   if state vch <> Connected then raise (Not_connected (state vch))
@@ -275,44 +280,66 @@ let write_from vch buf off len =
       let avail = fast_get_buffer_space vch (len - pos) in
       let avail = if pos + avail > len then len - pos else avail in
       let pos = if avail > 0 then pos + _write_unsafe vch buf pos avail else pos in
-      if pos = len then Lwt.return pos else wait vch >> inner pos
+      if pos = len then Lwt.return pos else wait vch >>= fun () -> inner pos
     in inner 0
 
 let write vch buf =
   let buflen = String.length buf in
   write_from vch buf 0 buflen >>= fun len -> Lwt.return (i_int len)
 
-let _read_unsafe_into vch buf len =
+(* This is unsafe because:
+
+   - [len] is not checked at all, if it is bigger than the size of the
+    ring the read will be corrupted.
+
+   - There is no notion of "data ready" at all, this function just
+     reads the content of the ring.
+
+   - No check is performed to know if the connection is in the
+     Connected state or not.
+
+*)
+let _read_unsafe_into vch buf off len =
   let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
   let avail_contig = rd_ring_size vch - real_idx in
   let avail_contig = if avail_contig > len then len else avail_contig in
-  let buf = String.create len in
   Xenctrl.xen_rmb ();
-  Cstruct.blit_to_string vch.read real_idx buf 0 avail_contig;
+  Cstruct.blit_to_string vch.read real_idx buf off avail_contig;
   (if avail_contig < len then
-     Cstruct.blit_to_string vch.read 0 buf avail_contig (len - avail_contig)
+     Cstruct.blit_to_string vch.read 0 buf (off + avail_contig) (len - avail_contig)
   );
   Xenctrl.xen_mb ();
   set_rd_cons vch Int32.(rd_cons vch + of_int len);
   send_notify vch Read;
   len
 
+(* Reads exactly [len] bytes if [len < sizeof ring], raises
+   End_of_file otherwise. *)
 let rec read_into_exactly vch buf off len =
   if state vch <> Connected then raise (Not_connected (state vch))
   else
     let avail = fast_get_data_ready vch len in
-    if len <= avail then Lwt.return (_read_unsafe_into vch buf len |> i_int)
+    if len <= avail then Lwt.return (_read_unsafe_into vch buf off len |> i_int)
     else
     if len > rd_ring_size vch then raise End_of_file
-    else wait vch >> read_into_exactly vch buf off len
+    else wait vch >>= fun () -> read_into_exactly vch buf off len
 
+(* Reads as much as it is possible, and return the number of bytes
+   read. *)
 let rec read_into vch buf off len =
   if state vch <> Connected then raise (Not_connected (state vch))
   else
     let avail = fast_get_data_ready vch len in
-    let len = if avail > 0 && len > avail then avail else len in
-    if avail > 0 then Lwt.return (_read_unsafe_into vch buf len)
-    else wait vch >> read_into vch buf off len
+    if avail = 0 then
+      begin
+        Printf.printf "read_into: before wait\n%!";
+        wait vch >>= fun () ->
+        (Printf.printf "read_into: after wait\n%!";
+        read_into vch buf off len)
+      end
+    else
+      let len = if len > avail then avail else len in
+      Lwt.return (_read_unsafe_into vch buf off len)
 
 let read vch count =
   let buf = String.create count in
@@ -383,11 +410,12 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   Xs.make ()
   >>= fun xsc ->
   Xs.(transaction xsc
-        (fun xsh -> mkdir xsh xs_path
-          >> write xsh (xs_path ^ "ring-ref") ring_ref
-          >> write xsh (xs_path ^ "event-channel") (string_of_int (Eventchn.to_int evtchn))
+        (fun xsh ->
+           mkdir xsh xs_path
+           >>= fun () ->  write xsh (xs_path ^ "ring-ref") ring_ref
+           >>= fun () ->  write xsh (xs_path ^ "event-channel") (string_of_int (Eventchn.to_int evtchn))
         ))
-  >>
+  >>= fun () ->
 
   (* Return the shared structure *)
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
@@ -407,15 +435,26 @@ let client ~domid ~xs_path =
     Lwt.return (Gnt.grant_table_index_of_string gntref, int_of_string evtchn)
   in
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
+
   (* Map the vchan interface page *)
+  Printf.printf "Client initializing: Received gntref = %s, evtchn = %d\n%!"
+  (Gnt.string_of_grant_table_index gntref) evtchn;
   let gnttab_h = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
   let vchan_intf_cstruct = Cstruct.of_bigarray
       (Gnt.Gnttab.Local_mapping.to_buf mapping) in
 
+  (* Set initial values in vchan_intf *)
+  set_vchan_interface_cli_live vchan_intf_cstruct 1;
+  set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
+
   (* Bind the event channel *)
   let evtchn_h = Eventchn.init () in
   let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
+  Printf.printf "Correctly bound evtchn number %d\n%!" (Eventchn.to_int evtchn);
+
+  (* Consume an event that may be sent automatically *)
+  (* Lwt.pick [Activations.wait evtchn; Lwt_unix.sleep 0.2] >>= fun () -> *)
 
   (* Map the rings *)
   let rings_of_vchan_intf v =
