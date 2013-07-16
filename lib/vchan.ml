@@ -39,7 +39,7 @@ end
 
 (* GCC atomic stuff *)
 
-external atomic_or_fetch : char -> int -> unit = "stub_atomic_or_fetch" "noalloc"
+external atomic_or_fetch : char -> int -> int = "stub_atomic_or_fetch" "noalloc"
 external atomic_fetch_and : char -> int -> int = "stub_atomic_fetch_and" "noalloc"
 
 (* left is client write, server read
@@ -219,13 +219,13 @@ let rd_ring_size vch = match vch.role with
 
 let request_notify vch rdwr =
   let open Cstruct in
-  let idx = match vch.role with Client _ -> 21 | Server _ -> 22 in
-  atomic_or_fetch vch.shared_page.buffer.{idx} (bit_of_read_write rdwr);
+  let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
+  i_int (atomic_or_fetch vch.shared_page.buffer.{idx} (bit_of_read_write rdwr));
   Xenctrl.xen_mb ()
 
 let send_notify vch rdwr =
   let open Cstruct in
-  let idx = match vch.role with Client _ -> 21 | Server _ -> 22 in
+  let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
   Xenctrl.xen_mb ();
   let prev =
     atomic_fetch_and vch.shared_page.buffer.{idx} (bit_of_read_write rdwr) in
