@@ -61,11 +61,10 @@ let node clisrv rw domid nodepath : unit Lwt.t =
         match rw with
         | Read ->
           let rec read_forever vch =
-            Printf.printf "Reading forever loop.\n%!";
             Vchan.read_into vch buf 0 5000
             >>= fun nb_read ->
             let string_to_print = String.sub buf 0 nb_read in
-            print_endline string_to_print;
+            Printf.printf "%s%!" string_to_print;
             read_forever vch
           in read_forever vch
 
