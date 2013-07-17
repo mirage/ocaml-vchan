@@ -238,7 +238,9 @@ let buffer_space vch =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
-let wait vch = Activations.wait vch.evtchn
+let wait vch =
+  (* Activations.wait vch.evtchn *)
+  Lwt_unix.sleep 0.1
 
 let state vch =
   let client_state =
@@ -331,12 +333,7 @@ let rec read_into vch buf off len =
   else
     let avail = fast_get_data_ready vch len in
     if avail = 0 then
-      begin
-        Printf.printf "read_into: before wait\n%!";
-        wait vch >>= fun () ->
-        (Printf.printf "read_into: after wait\n%!";
-        read_into vch buf off len)
-      end
+      wait vch >>= fun () -> read_into vch buf off len
     else
       let len = if len > avail then avail else len in
       Lwt.return (_read_unsafe_into vch buf off len)
@@ -389,6 +386,8 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
 
   set_vchan_interface_right_order v (order_of_buffer_location read_l);
   set_vchan_interface_left_order v (order_of_buffer_location write_l);
+  Printf.printf "Server: right_order = %d, left_order = %d\n%!"
+    (order_of_buffer_location read_l) (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
@@ -396,10 +395,28 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   | External n ->
     let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
     let pages = Gnt.Gntshr.(share.mapping) in
+    List.iter (fun r ->
+        Printf.printf "allocate_buffer_locations: gntref = %d\n%!" Gnt.(int_of_grant_table_index r))
+      Gnt.Gntshr.(share.refs);
     Some share, Cstruct.of_bigarray pages in
 
-  let write_shr, write_buf = allocate_buffer_locations write_l in
   let read_shr, read_buf = allocate_buffer_locations read_l in
+  let write_shr, write_buf = allocate_buffer_locations write_l in
+  let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
+  let nb_write_pages = (match write_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
+
+  (* Write the gntrefs to the shared page. Ordering is left, right. *)
+  List.iteri
+    (fun i ref ->
+       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4)
+         (Gnt.int_of_grant_table_index ref |> Int32.of_int))
+    (match read_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
+
+  List.iteri
+    (fun i ref ->
+       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+(i+nb_read_pages)*4)
+         (Gnt.int_of_grant_table_index ref |> Int32.of_int))
+    (match write_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
 
   (* Allocate the event channel *)
   let evtchn_h = Eventchn.init () in
@@ -412,12 +429,15 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   Xs.(transaction xsc
         (fun xsh ->
            mkdir xsh xs_path
-           >>= fun () ->  write xsh (xs_path ^ "ring-ref") ring_ref
-           >>= fun () ->  write xsh (xs_path ^ "event-channel") (string_of_int (Eventchn.to_int evtchn))
+           >>= fun () ->  write xsh (xs_path ^ "/ring-ref") ring_ref
+           >>= fun () ->  write xsh (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
         ))
   >>= fun () ->
 
   (* Return the shared structure *)
+  Printf.printf "Shared page is:\n%!";
+  Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
+
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
@@ -444,6 +464,14 @@ let client ~domid ~xs_path =
   let vchan_intf_cstruct = Cstruct.of_bigarray
       (Gnt.Gnttab.Local_mapping.to_buf mapping) in
 
+  (* Resizing vchan_intf_cstruct *)
+  let nb_left_pages = 1 lsl (get_lo vchan_intf_cstruct - 12) in
+  let nb_right_pages = 1 lsl (get_ro vchan_intf_cstruct - 12) in
+  let vchan_intf_cstruct = Cstruct.sub vchan_intf_cstruct 0
+      (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
+  Printf.printf "Mapped the ring shared page:\n%!";
+  Cstruct.hexdump vchan_intf_cstruct;
+
   (* Set initial values in vchan_intf *)
   set_vchan_interface_cli_live vchan_intf_cstruct 1;
   set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
@@ -465,33 +493,34 @@ let client ~domid ~xs_path =
       | 10, 11 -> (None, Cstruct.sub v 1024 1024), (None, Cstruct.sub v 2048 2048)
       | 11, 10 -> (None, Cstruct.sub v 2048 2048), (None, Cstruct.sub v 1024 1024)
       | 11, 11 ->
-        let gntref = Gnt.grant_table_index_of_int32
-          (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface) in
+        let gntref = Gnt.grant_table_index_of_int
+          (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface |> Int32.to_int) in
         let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
         (None, Cstruct.sub v 2048 2048),
         (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping))
 
       | n, m when n > 9 && m > 9 ->
-        let pages_to_map order = 1 lsr (order - 12) in
-        let lpages_nb = pages_to_map lo in
-        let rpages_nb = pages_to_map ro in
-        let lgrants = Array.make lpages_nb 0l in
-        let rgrants = Array.make rpages_nb 0l in
+        let lgrants = Array.make nb_left_pages 0 in
+        let rgrants = Array.make nb_right_pages 0 in
 
         (* Reading grant refs from the shared page and load them into
            the arrays just created. *)
         let lgrants =
-          for i = 0 to lpages_nb - 1 do
-            lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct (sizeof_vchan_interface + i*4)
-          done; List.map
-            (fun gntref -> Gnt.Gnttab.({ domid; ref=Gnt.grant_table_index_of_int32 gntref }))
-              (Array.to_list lgrants) in
+          for i = 0 to nb_left_pages - 1 do
+            lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
+                (sizeof_vchan_interface + i*4) |> Int32.to_int
+          done;
+          List.map
+            (fun gntref -> Gnt.Gnttab.({ domid; ref=Gnt.grant_table_index_of_int gntref }))
+            (Array.to_list lgrants) in
         let rgrants =
-          for i = 0 to rpages_nb - 1 do
-            rgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct (sizeof_vchan_interface + lpages_nb*4 + i*4)
-          done;  List.map
-            (fun gntref -> Gnt.Gnttab.({ domid; ref=Gnt.grant_table_index_of_int32 gntref }))
-              (Array.to_list rgrants) in
+          for i = 0 to nb_right_pages - 1 do
+            rgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
+                (sizeof_vchan_interface + nb_left_pages*4 + i*4) |> Int32.to_int
+          done;
+          List.map
+            (fun gntref -> Gnt.Gnttab.({ domid; ref=Gnt.grant_table_index_of_int gntref }))
+            (Array.to_list rgrants) in
 
         (* Use the grant refs arrays to map left and right pages. *)
         let lgrants_map =
