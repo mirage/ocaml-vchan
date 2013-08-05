@@ -7,19 +7,48 @@ License:     ISC
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
+Flag lwt
+  Description: build the Lwt library
+  Default: false
+
+Flag mirage
+  Description: build the Mirage library
+  Default: true
+
 Library vchan
   CompiledObject:     best
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.lwt, xenctrl.lwt
+  BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, mirage
+# xenstore.client, xenstore_transport.lwt, xenctrl.lwt
   CSources:           vchan_stubs.c
 
-Executable node
-  CompiledObject: best
-  Path: test
-  MainIs: node.ml
-  BuildDepends: lwt, cmdliner, vchan
+# Library vchan_lwt
+#   Build$: flag(lwt)
+#   Install$: flag(lwt)
+  # CompiledObject:     best
+  # Path:               lib
+  # Findlibname:        vchan_lwt
+  # Modules:            Vchan
+  # BuildDepends:       lwt, cstruct (>= 0.6.0), cstruct.syntax, xenstore.client, xenstore_transport.lwt, xenctrl.lwt
+  # CSources:           vchan_stubs.c
+
+# Library vchan_mirage
+#   Build$: flag(mirage)
+#   Install$: flag(mirage)
+#   CompiledObject:     best
+#   Path:               lib
+#   Findlibname:        vchan
+#   Modules:            Vchan
+#   BuildDepends:       lwt, cstruct, cstruct.syntax, mirage
+#   CSources:           vchan_stubs.c
+
+# Executable node
+#   CompiledObject: best
+#   Path: test
+#   MainIs: node.ml
+#   BuildDepends: lwt, cmdliner, vchan
 
 Document api
   Title: Documentation and API reference

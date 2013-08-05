@@ -14,8 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-
-module Xs = Xs_client_lwt.Client (Xs_transport_lwt_unix_client)
+open OS
+(* module Xs = Xs_client_lwt.Client (OS.Xs.IO) *)
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
