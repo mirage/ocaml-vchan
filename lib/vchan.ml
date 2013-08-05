@@ -38,8 +38,8 @@ end
 
 (* GCC atomic stuff *)
 
-external atomic_or_fetch : char -> int -> int = "stub_atomic_or_fetch" "noalloc"
-external atomic_fetch_and : char -> int -> int = "stub_atomic_fetch_and" "noalloc"
+external atomic_or_fetch : Cstruct.buffer -> int -> int -> int = "stub_atomic_or_fetch" "noalloc"
+external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_fetch_and" "noalloc"
 
 (* left is client write, server read
    right is client read, server write *)
@@ -204,7 +204,7 @@ let request_notify vch rdwr =
   let open Cstruct in
   (* This should be correct: client -> srv_notify | server -> cli_notify *)
   let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
-  i_int (atomic_or_fetch vch.shared_page.buffer.{idx} (bit_of_read_write rdwr));
+  i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr));
   Xenctrl.xen_mb ()
 
 let send_notify vch rdwr =
@@ -214,7 +214,7 @@ let send_notify vch rdwr =
   Xenctrl.xen_mb ();
   let prev =
     (* clear the bit and return previous value *)
-    atomic_fetch_and vch.shared_page.buffer.{idx} (bit_of_read_write rdwr |> lnot) in
+    atomic_fetch_and vch.shared_page.buffer idx (bit_of_read_write rdwr |> lnot) in
   if prev land (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
 
 let fast_get_data_ready vch request =
@@ -239,8 +239,8 @@ let buffer_space vch =
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
 let wait vch =
-  (* Activations.wait vch.evtchn *)
-  Lwt_unix.sleep 0.1
+  Activations.wait vch.evtchn
+  (* Lwt_unix.sleep 0.1 *)
 
 let state vch =
   let client_state =
