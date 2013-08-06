@@ -3,3 +3,10 @@ setup.*
 *.docdir
 *.byte
 *.native
+test/*.map
+test/*.xen
+test/*.xl
+test/Makefile
+test/backend.ml
+test/main.ml
+test/myocamlbuild.ml
