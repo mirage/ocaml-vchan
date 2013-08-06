@@ -30,7 +30,7 @@ exception Not_connected of state
 (** Exception raised when trying to use a handler that is not
     currently connected to an endpoint. *)
 
-val server : domid:int -> xs_path:string -> read_size:int
+val server : evtchn_h:Eventchn.handle -> domid:int -> xs_path:string -> read_size:int
   -> write_size:int -> persist:bool -> t Lwt.t
 (** [server ~domid ~xs_path ~read_size ~write_size ~persist]
     initializes a vchan server listening to connections from domain
@@ -39,7 +39,7 @@ val server : domid:int -> xs_path:string -> read_size:int
     [~write_size], which accepts reconnections depending on the
     value of [~persist]. *)
 
-val client : domid:int -> xs_path:string -> t Lwt.t
+val client : evtchn_h:Eventchn.handle -> domid:int -> xs_path:string -> t Lwt.t
 (** [client ~domid ~xs_path] initializes a vchan client to
     communicate with domain [~domid] using connection information
     from [~xs_path]. *)

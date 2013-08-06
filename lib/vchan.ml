@@ -14,8 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open OS
-(* module Xs = Xs_client_lwt.Client (OS.Xs.IO) *)
+(* open OS *)
+module Xs = Xs_client_lwt.Client (Xs_transport_lwt_unix_client)
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -342,7 +342,7 @@ let read vch count =
   let buf = String.create count in
   read_into vch buf 0 count >>= fun len -> Lwt.return (String.sub buf 0 len)
 
-let server ~domid ~xs_path ~read_size ~write_size ~persist =
+let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -418,7 +418,6 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
     (match write_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
 
   (* Allocate the event channel *)
-  let evtchn_h = Eventchn.init () in
   let evtchn = Eventchn.bind_unbound_port evtchn_h domid in
 
   (* Write the config to XenStore *)
@@ -440,7 +439,7 @@ let server ~domid ~xs_path ~read_size ~write_size ~persist =
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
-let client ~domid ~xs_path =
+let client ~evtchn_h ~domid ~xs_path =
   let get_gntref_and_evtchn () =
     Xs.make ()
     >>= fun xs_cli ->
@@ -476,7 +475,6 @@ let client ~domid ~xs_path =
   set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
 
   (* Bind the event channel *)
-  let evtchn_h = Eventchn.init () in
   let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
   Printf.printf "Correctly bound evtchn number %d\n%!" (Eventchn.to_int evtchn);
 
