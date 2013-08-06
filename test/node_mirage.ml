@@ -21,4 +21,4 @@ let main () =
   Xs.make () >>= fun xsh ->
   Xs.immediate xsh (fun xsh -> Xs.read xsh "domid") >>=
   fun domid ->
-  Node.with_vchan clisrv remote_domid (nodepath domid) echo
+  Node.with_vchan clisrv (Eventchn.init ()) remote_domid (nodepath domid) echo
