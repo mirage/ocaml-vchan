@@ -14,8 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(* open OS *)
-module Xs = Xs_client_lwt.Client (Xs_transport_lwt_unix_client)
+open OS
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -137,6 +136,10 @@ type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
+
+module Make (IO: Xs_client_lwt.IO) = struct
+
+module Xs = Xs_client_lwt.Client(IO)
 
 (* The state of a single vchan peer *)
 type t = {
@@ -550,3 +553,5 @@ let close vch =
     Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
     Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
     Gnt.Gntshr.interface_close gntshr_h
+
+end
