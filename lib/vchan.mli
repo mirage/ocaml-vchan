@@ -18,7 +18,7 @@ open OS
 
 (** Client and server interface for Xen's vchan protocol. *)
 
-module Make (IO: Xs_client_lwt.IO) : sig
+module Make (Xs: Xs_client_lwt.S) : sig
   type t
   (** Type of a vchan handler. *)
 

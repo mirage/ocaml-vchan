@@ -137,9 +137,7 @@ type role =
   | Server of server_params
   | Client of client_params
 
-module Make (IO: Xs_client_lwt.IO) = struct
-
-module Xs = Xs_client_lwt.Client(IO)
+module Make (Xs: Xs_client_lwt.S) = struct
 
 (* The state of a single vchan peer *)
 type t = {
@@ -243,7 +241,6 @@ let buffer_space vch =
 
 let wait vch =
   Activations.wait vch.evtchn
-  (* Lwt_unix.sleep 0.1 *)
 
 let state vch =
   let client_state =
@@ -426,13 +423,22 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   (* Write the config to XenStore *)
   let ring_ref = Gnt.(string_of_int (List.hd shr_shr.Gntshr.refs)) in
   Xs.make ()
-  >>= fun xsc ->
-  Xs.(transaction xsc
-        (fun xsh ->
-           mkdir xsh xs_path
-           >>= fun () ->  write xsh (xs_path ^ "/ring-ref") ring_ref
-           >>= fun () ->  write xsh (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
-        ))
+  >>= fun c ->
+  Printf.printf "Writing config into the XenStore\n%!";
+  for i = 0 to 10 do
+    Xs.(immediate c (fun h -> read h "domid")) >>= fun str -> Lwt.return (Printf.printf "domid = %s\n%!" str)
+  done;
+  Xs.(immediate c
+        (fun h ->
+           Printf.printf "Inside Xs.immediate: writing to %s\n%!" xs_path;
+           mkdir h xs_path))
+  >>= fun () -> Xs.(immediate c (fun h ->
+      Printf.printf "Created directory %s\n%!" xs_path;
+      write h (xs_path ^ "/ring-ref") ring_ref))
+  >>= fun () -> Xs.(immediate c (fun h ->
+      Printf.printf "Created key %s/ring-ref\n%!" xs_path;
+      write h (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
+    ))
   >>= fun () ->
 
   (* Return the shared structure *)
@@ -448,10 +454,10 @@ let client ~evtchn_h ~domid ~xs_path =
     >>= fun xs_cli ->
     Xs.(wait xs_cli
           (fun xsh -> directory xsh xs_path >>= function
-            | [a; b] ->     read xsh (xs_path ^ "/ring-ref")
-                        >>= fun rref -> read xsh (xs_path ^ "/event-channel")
-                        >>= fun evtchn -> Lwt.return (rref, evtchn)
-            | _ -> Lwt.fail Xs_protocol.Eagain))
+             | [a; b] -> read xsh (xs_path ^ "/ring-ref")
+               >>= fun rref -> read xsh (xs_path ^ "/event-channel")
+               >>= fun evtchn -> Lwt.return (rref, evtchn)
+             | _ -> Lwt.fail Xs_protocol.Eagain))
     >>= fun (gntref, evtchn) ->
     Lwt.return (int_of_string gntref, int_of_string evtchn)
   in
