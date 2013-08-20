@@ -12,12 +12,10 @@ let rec echo vch =
   V.read_into vch buf 0 5000
   >>= fun nb_read ->
   (* Strip the final \n *)
+  Printf.printf "Read %d chars from a client!\n%!" nb_read;
   let string_to_echo = String.sub buf 0 (nb_read-1) in
   V.write vch string_to_echo
   >>= fun () -> echo vch
 
 let main () =
-  Xs.make () >>= fun c ->
-  Xs.immediate c (fun h -> Xs.read h "domid") >>=
-  fun domid ->
-  Node.with_vchan clisrv (Eventchn.init ()) remote_domid "vchan" echo
+  Node.with_vchan clisrv (Eventchn.init ()) remote_domid "data/vchan" echo

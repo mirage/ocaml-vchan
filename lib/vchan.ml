@@ -425,20 +425,12 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Xs.make ()
   >>= fun c ->
   Printf.printf "Writing config into the XenStore\n%!";
-  for i = 0 to 10 do
-    Xs.(immediate c (fun h -> read h "domid")) >>= fun str -> Lwt.return (Printf.printf "domid = %s\n%!" str)
-  done;
   Xs.(immediate c
         (fun h ->
-           Printf.printf "Inside Xs.immediate: writing to %s\n%!" xs_path;
-           mkdir h xs_path))
-  >>= fun () -> Xs.(immediate c (fun h ->
-      Printf.printf "Created directory %s\n%!" xs_path;
-      write h (xs_path ^ "/ring-ref") ring_ref))
-  >>= fun () -> Xs.(immediate c (fun h ->
-      Printf.printf "Created key %s/ring-ref\n%!" xs_path;
-      write h (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
-    ))
+           mkdir h xs_path >>= fun () ->
+           write h (xs_path ^ "/ring-ref") ring_ref >>= fun () ->
+           write h (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
+        ))
   >>= fun () ->
 
   (* Return the shared structure *)
