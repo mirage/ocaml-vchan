@@ -37,8 +37,8 @@ end
 
 (* GCC atomic stuff *)
 
-external atomic_or_fetch : Cstruct.buffer -> int -> int -> int = "stub_atomic_or_fetch" "noalloc"
-external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_fetch_and" "noalloc"
+external atomic_or_fetch : Cstruct.buffer -> int -> int -> int = "stub_atomic_or_fetch_uint8"
+external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_fetch_and_uint8"
 
 (* left is client write, server read
    right is client read, server write *)
@@ -147,6 +147,7 @@ type t = {
   write: Cstruct.t; (* the ring where you write data to *)
   evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
+  blocking: bool
 }
 
 type state =
@@ -210,13 +211,14 @@ let request_notify vch rdwr =
 
 let send_notify vch rdwr =
   let open Cstruct in
+  Xenctrl.xen_mb ();
   (* This should be correct: client -> cli_notify | server -> srv_notify *)
   let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
-  Xenctrl.xen_mb ();
+  let bit = bit_of_read_write rdwr in
   let prev =
     (* clear the bit and return previous value *)
-    atomic_fetch_and vch.shared_page.buffer idx (bit_of_read_write rdwr |> lnot) in
-  if prev land (bit_of_read_write rdwr) <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
+    atomic_fetch_and vch.shared_page.buffer idx (lnot bit) in
+  if prev land bit <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
 
 let fast_get_data_ready vch request =
   let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
@@ -240,7 +242,7 @@ let buffer_space vch =
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
 let wait vch =
-  Activations.wait vch.evtchn
+  if vch.blocking then Activations.wait vch.evtchn else Lwt.return ()
 
 let state vch =
   let client_state =
@@ -342,7 +344,7 @@ let read vch count =
   let buf = String.create count in
   read_into vch buf 0 count >>= fun len -> Lwt.return (String.sub buf 0 len)
 
-let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
+let server ~blocking ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -438,9 +440,9 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
 
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
-  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
+  Lwt.return { blocking; shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
-let client ~evtchn_h ~domid ~xs_path =
+let client ~blocking ~evtchn_h ~domid ~xs_path =
   let get_gntref_and_evtchn () =
     Xs.make ()
     >>= fun xs_cli ->
@@ -478,9 +480,6 @@ let client ~evtchn_h ~domid ~xs_path =
   (* Bind the event channel *)
   let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
   Printf.printf "Correctly bound evtchn number %d\n%!" (Eventchn.to_int evtchn);
-
-  (* Consume an event that may be sent automatically *)
-  (* Lwt.pick [Activations.wait evtchn; Lwt_unix.sleep 0.2] >>= fun () -> *)
 
   (* Map the rings *)
   let rings_of_vchan_intf v =
@@ -532,7 +531,7 @@ let client ~evtchn_h ~domid ~xs_path =
 
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
-  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
+  Lwt.return { blocking; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
 
 let close vch =
   (* C impl. notify before shutting down the event channel

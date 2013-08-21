@@ -33,19 +33,33 @@ module Make (Xs: Xs_client_lwt.S) : sig
   (** Exception raised when trying to use a handler that is not
       currently connected to an endpoint. *)
 
-  val server : evtchn_h:Eventchn.handle -> domid:int -> xs_path:string -> read_size:int
-    -> write_size:int -> persist:bool -> t Lwt.t
-  (** [server ~domid ~xs_path ~read_size ~write_size ~persist]
-      initializes a vchan server listening to connections from domain
-      [~domid], using connection information from [~xs_path], with
-      left ring of size [~read_size] and right ring of size
-      [~write_size], which accepts reconnections depending on the
-      value of [~persist]. *)
+  val server :
+    blocking:bool ->
+    evtchn_h:Eventchn.handle ->
+    domid:int ->
+    xs_path:string ->
+    read_size:int ->
+    write_size:int ->
+    persist:bool -> t Lwt.t
+  (** [server ~blocking ~evtchn_h ~domid ~xs_path ~read_size
+      ~write_size ~persist] initializes a vchan server listening to
+      connections from domain [~domid], using connection information
+      from [~xs_path], with left ring of size [~read_size] and right
+      ring of size [~write_size], which accepts reconnections
+      depending on the value of [~persist]. If [~blocking] is [true],
+      the reading and writing functions will poll rather than block on
+      a notification. The [~eventchn] argument is necessary because
+      under Unix, handles do not see events from other handles. *)
 
-  val client : evtchn_h:Eventchn.handle -> domid:int -> xs_path:string -> t Lwt.t
-  (** [client ~domid ~xs_path] initializes a vchan client to
-      communicate with domain [~domid] using connection information
-      from [~xs_path]. *)
+  val client :
+    blocking:bool ->
+    evtchn_h:Eventchn.handle ->
+    domid:int ->
+    xs_path:string -> t Lwt.t
+  (** [client ~blocking ~evtchn_h ~domid ~xs_path] initializes a vchan
+      client to communicate with domain [~domid] using connection
+      information from [~xs_path]. See the above function for the
+      definition of fields [~blocking] and [~evtchn_h]. *)
 
   val close : t -> unit
   (** Close a vchan. This deallocates the vchan and attempts to free
