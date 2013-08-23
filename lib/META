@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0ba8b52499c3847acf72c673c5a16b04)
-version = "0.1.0"
+# DO NOT EDIT (digest: 98ea1453de47e4e3138a627213859982)
+version = "0.9"
 description = "Xen libvchan protocol implementation"
 requires = "lwt cstruct cstruct.syntax mirage"
 archive(byte) = "vchan.cma"
