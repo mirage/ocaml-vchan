@@ -41,7 +41,7 @@ let buf = String.create 5000
 let with_vchan_f op vch = match op with
   | Read ->
     let rec read_forever vch =
-      Vchan.read_into vch buf 0 5000
+      V.read_into vch buf 0 5000
       >>= fun nb_read ->
       let string_to_print = String.sub buf 0 nb_read in
       Printf.printf "%s%!" string_to_print;
@@ -53,7 +53,7 @@ let with_vchan_f op vch = match op with
     let rec stdin_to_endpoint vch =
       Printf.printf "> %!";
       Lwt_io.read_line Lwt_io.stdin
-      >>= fun line -> Vchan.write vch (line ^ "\n")
+      >>= fun line -> V.write vch (line ^ "\n")
       >>= fun () -> stdin_to_endpoint vch
     in
     stdin_to_endpoint vch
@@ -62,7 +62,7 @@ let node clisrv rw domid nodepath : unit Lwt.t = Lwt_main.run (
     (* Listen to incoming events. *)
     let evtchn_h = Eventchn.init () in
     Lwt.async (fun () -> Activations.run evtchn_h);
-    Node.with_vchan clisrv evtchn_h domid nodepath (with_vchan_f rw))
+    Node.with_vchan false clisrv evtchn_h domid nodepath (with_vchan_f rw))
 
 let cmd =
   let doc = "Vchan testing" in

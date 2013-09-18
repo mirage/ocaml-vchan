@@ -4,7 +4,7 @@ open Node
 (* Config **********************************************************)
 let clisrv = Server
 let remote_domid = 0 (* Serve dom0 *)
-let blocking = false
+let blocking = true
 (*******************************************************************)
 
 let buf = String.create 5000
