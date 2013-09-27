@@ -147,7 +147,6 @@ type t = {
   write: Cstruct.t; (* the ring where you write data to *)
   evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
-  blocking: bool
 }
 
 type state =
@@ -241,8 +240,7 @@ let buffer_space vch =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
-let wait vch =
-  if vch.blocking then Activations.wait vch.evtchn else Lwt.return ()
+let wait vch = Activations.wait vch.evtchn
 
 let state vch =
   let client_state =
@@ -344,7 +342,7 @@ let read vch count =
   let buf = String.create count in
   read_into vch buf 0 count >>= fun len -> Lwt.return (String.sub buf 0 len)
 
-let server ~blocking ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
+let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -440,9 +438,9 @@ let server ~blocking ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
 
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
-  Lwt.return { blocking; shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
+  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
 
-let client ~blocking ~evtchn_h ~domid ~xs_path =
+let client ~evtchn_h ~domid ~xs_path =
   let get_gntref_and_evtchn () =
     Xs.make ()
     >>= fun xs_cli ->
@@ -531,7 +529,7 @@ let client ~blocking ~evtchn_h ~domid ~xs_path =
 
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
-  Lwt.return { blocking; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
+  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
 
 let close vch =
   (* C impl. notify before shutting down the event channel
