@@ -1,5 +1,6 @@
 open Cmdliner
 open Node
+open OS
 
 type op = Read | Write
 
@@ -61,8 +62,7 @@ let with_vchan_f op vch = match op with
 let node clisrv rw domid nodepath : unit Lwt.t = Lwt_main.run (
     (* Listen to incoming events. *)
     let evtchn_h = Eventchn.init () in
-    Lwt.async (fun () -> Activations.run evtchn_h);
-    Node.with_vchan false clisrv evtchn_h domid nodepath (with_vchan_f rw))
+    Node.with_vchan clisrv evtchn_h domid nodepath (with_vchan_f rw))
 
 let cmd =
   let doc = "Vchan testing" in
