@@ -4,7 +4,6 @@ open Node
 (* Config **********************************************************)
 let clisrv = Server
 let remote_domid = 0 (* Serve dom0 *)
-let blocking = true
 (*******************************************************************)
 
 let buf = String.create 5000
@@ -15,4 +14,4 @@ let rec echo vch =
   echo vch
 
 let main () =
-  Node.with_vchan blocking clisrv (Eventchn.init ()) remote_domid "data/vchan" echo
+  Node.with_vchan clisrv (Eventchn.init ()) remote_domid "data/vchan" echo
