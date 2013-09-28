@@ -25,7 +25,7 @@ echo OPAM versions
 opam --version
 opam --git-version
 
-opam init 
+opam init git://github.com/OCamlPro/opam-repository
 opam install ${OPAM_DEPENDS}
 
 eval `opam config env`
