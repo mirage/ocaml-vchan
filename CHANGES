@@ -1,5 +1,8 @@
-0.9.1 (2013-09-27)
+0.9.2 (trunk):
+* Add Travis continuous integration scripts.
+
+0.9.1 (2013-09-27):
 * Remove 'blocking' parameter
 
-0.9 (2013-08-23)
+0.9 (2013-08-23):
 * Initial public release.
