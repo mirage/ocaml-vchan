@@ -1,4 +1,4 @@
-0.9.2 (trunk):
+0.9.2 (2013-10-02):
 * Add Travis continuous integration scripts.
 * Add explicit dependency on OCaml 4.00+
 
