@@ -72,8 +72,8 @@ let get_rp v = get_ring_shared_prod (get_vchan_interface_right v)
 let set_rp v = set_ring_shared_prod (get_vchan_interface_right v)
 let get_lc v = get_ring_shared_cons (get_vchan_interface_left v)
 let set_lc v = set_ring_shared_cons (get_vchan_interface_left v)
-let get_rc v = get_ring_shared_cons (get_vchan_interface_left v)
-let set_rc v = set_ring_shared_cons (get_vchan_interface_left v)
+let get_rc v = get_ring_shared_cons (get_vchan_interface_right v)
+let set_rc v = set_ring_shared_cons (get_vchan_interface_right v)
 
 type ('a, 'b) result =
   | Ok of 'a
