@@ -260,7 +260,7 @@ let _write_unsafe vch buf off len =
   Xenctrl.xen_mb ();
   Cstruct.blit_from_string buf off vch.write real_idx avail_contig;
   (if avail_contig < len then (* We rolled across the end of the ring *)
-    Cstruct.blit_from_string buf off vch.write 0 (len - avail_contig));
+    Cstruct.blit_from_string buf (off + avail_contig) vch.write 0 (len - avail_contig));
   Xenctrl.xen_wmb ();
   set_wr_prod vch Int32.(wr_prod vch + of_int len);
   send_notify vch Write;
