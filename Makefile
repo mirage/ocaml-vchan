@@ -12,7 +12,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure
+	@./setup.bin -configure --enable-cli
 
 build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
