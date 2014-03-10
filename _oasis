@@ -16,8 +16,8 @@ Library vchan
   CompiledObject:     best
   Path:               lib
   Findlibname:        vchan
-  Modules:            Vchan
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage, xenstore.client, xenctrl
+  Modules:            Vchan, Vchan_t, Vchan_wire
+  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage, xenstore.client, xen-event, xen-gnt
   CSources:           vchan_stubs.c
 
 Executable node_cli
