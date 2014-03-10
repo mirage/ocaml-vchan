@@ -1,4 +1,5 @@
 (*
+ * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
  * Copyright (c) 2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -14,11 +15,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open OS
-
 (** Client and server interface for Xen's vchan protocol. *)
 
-module Make (Xs: Xs_client_lwt.S) : sig
+module Make (Xs: Xs_client_lwt.S)(A: Vchan_t.ACTIVATIONS) : sig
   type t
   (** Type of a vchan handler. *)
 
