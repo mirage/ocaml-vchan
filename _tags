@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: bc74248f74fae527fc8d507f085571a5)
+# DO NOT EDIT (digest: 0458ef76aa1437ff219721c5eff49a13)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -22,7 +22,6 @@
 <lib/*.ml{,i}>: package(mirage)
 <lib/*.ml{,i}>: package(xen-evtchn)
 <lib/*.ml{,i}>: package(xen-gnt)
-<lib/*.ml{,i}>: package(xenctrl)
 <lib/*.ml{,i}>: package(xenstore.client)
 "lib/vchan_stubs.c": package(cstruct)
 "lib/vchan_stubs.c": package(cstruct.syntax)
@@ -30,7 +29,6 @@
 "lib/vchan_stubs.c": package(mirage)
 "lib/vchan_stubs.c": package(xen-evtchn)
 "lib/vchan_stubs.c": package(xen-gnt)
-"lib/vchan_stubs.c": package(xenctrl)
 "lib/vchan_stubs.c": package(xenstore.client)
 # Executable node_cli
 <test/node_cli.{native,byte}>: package(cmdliner)
@@ -40,7 +38,6 @@
 <test/node_cli.{native,byte}>: package(mirage)
 <test/node_cli.{native,byte}>: package(xen-evtchn)
 <test/node_cli.{native,byte}>: package(xen-gnt)
-<test/node_cli.{native,byte}>: package(xenctrl)
 <test/node_cli.{native,byte}>: package(xenctrl.lwt)
 <test/node_cli.{native,byte}>: package(xenstore.client)
 <test/node_cli.{native,byte}>: package(xenstore_transport.lwt)
@@ -52,7 +49,6 @@
 <test/*.ml{,i}>: package(mirage)
 <test/*.ml{,i}>: package(xen-evtchn)
 <test/*.ml{,i}>: package(xen-gnt)
-<test/*.ml{,i}>: package(xenctrl)
 <test/*.ml{,i}>: package(xenctrl.lwt)
 <test/*.ml{,i}>: package(xenstore.client)
 <test/*.ml{,i}>: package(xenstore_transport.lwt)

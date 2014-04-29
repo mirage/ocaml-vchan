@@ -228,12 +228,12 @@ let request_notify vch rdwr =
   let open Cstruct in
   (* This should be correct: client -> srv_notify | server -> cli_notify *)
   let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
-  i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr));
-  Xenctrl.xen_mb ()
+  i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr))
+  (*; Xenctrl.xen_mb ()*)
 
 let send_notify vch rdwr =
   let open Cstruct in
-  Xenctrl.xen_mb ();
+  (*Xenctrl.xen_mb ();*)
   (* This should be correct: client -> cli_notify | server -> srv_notify *)
   let idx = match vch.role with Client _ -> 22 | Server _ -> 23 in
   let bit = bit_of_read_write rdwr in
@@ -283,11 +283,11 @@ let _write_unsafe vch buf off len =
   let real_idx = Int32.(logand (wr_prod vch) (of_int (wr_ring_size vch) - 1l) |> to_int) in
   let avail_contig = wr_ring_size vch - real_idx in
   let avail_contig = if avail_contig > len then len else avail_contig in
-  Xenctrl.xen_mb ();
+  (*Xenctrl.xen_mb ();*)
   Cstruct.blit_from_string buf off vch.write real_idx avail_contig;
   (if avail_contig < len then (* We rolled across the end of the ring *)
     Cstruct.blit_from_string buf (off + avail_contig) vch.write 0 (len - avail_contig));
-  Xenctrl.xen_wmb ();
+  (*Xenctrl.xen_wmb ();*)
   set_wr_prod vch Int32.(wr_prod vch + of_int len);
   send_notify vch Write;
   len
@@ -331,12 +331,12 @@ let _read_unsafe_into vch buf off len =
   let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
   let avail_contig = rd_ring_size vch - real_idx in
   let avail_contig = if avail_contig > len then len else avail_contig in
-  Xenctrl.xen_rmb ();
+  (*Xenctrl.xen_rmb ();*)
   Cstruct.blit_to_string vch.read real_idx buf off avail_contig;
   (if avail_contig < len then
      Cstruct.blit_to_string vch.read 0 buf (off + avail_contig) (len - avail_contig)
   );
-  Xenctrl.xen_mb ();
+  (*Xenctrl.xen_mb ();*)
   set_rd_cons vch Int32.(rd_cons vch + of_int len);
   send_notify vch Read;
   len
