@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 135539ca2c27195ffa3fe72bafcbe47d)
-# Ignore VCS directories, you can use the same kind of rule outside 
-# OASIS_START/STOP if you want to exclude directories that contains 
+# DO NOT EDIT (digest: 0458ef76aa1437ff219721c5eff49a13)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -16,39 +16,43 @@
 # Library vchan
 "lib/vchan.cmxs": use_vchan
 <lib/vchan.{cma,cmxa}>: use_libvchan_stubs
-<lib/*.ml{,i}>: pkg_lwt
-<lib/*.ml{,i}>: pkg_xenstore.client
-<lib/*.ml{,i}>: pkg_cstruct
-<lib/*.ml{,i}>: pkg_cstruct.syntax
-<lib/*.ml{,i}>: pkg_mirage
-<lib/*.ml{,i}>: pkg_xenctrl
-"lib/vchan_stubs.c": pkg_lwt
-"lib/vchan_stubs.c": pkg_xenstore.client
-"lib/vchan_stubs.c": pkg_cstruct
-"lib/vchan_stubs.c": pkg_cstruct.syntax
-"lib/vchan_stubs.c": pkg_mirage
-"lib/vchan_stubs.c": pkg_xenctrl
+<lib/*.ml{,i}>: package(cstruct)
+<lib/*.ml{,i}>: package(cstruct.syntax)
+<lib/*.ml{,i}>: package(lwt)
+<lib/*.ml{,i}>: package(mirage)
+<lib/*.ml{,i}>: package(xen-evtchn)
+<lib/*.ml{,i}>: package(xen-gnt)
+<lib/*.ml{,i}>: package(xenstore.client)
+"lib/vchan_stubs.c": package(cstruct)
+"lib/vchan_stubs.c": package(cstruct.syntax)
+"lib/vchan_stubs.c": package(lwt)
+"lib/vchan_stubs.c": package(mirage)
+"lib/vchan_stubs.c": package(xen-evtchn)
+"lib/vchan_stubs.c": package(xen-gnt)
+"lib/vchan_stubs.c": package(xenstore.client)
 # Executable node_cli
+<test/node_cli.{native,byte}>: package(cmdliner)
+<test/node_cli.{native,byte}>: package(cstruct)
+<test/node_cli.{native,byte}>: package(cstruct.syntax)
+<test/node_cli.{native,byte}>: package(lwt)
+<test/node_cli.{native,byte}>: package(mirage)
+<test/node_cli.{native,byte}>: package(xen-evtchn)
+<test/node_cli.{native,byte}>: package(xen-gnt)
+<test/node_cli.{native,byte}>: package(xenctrl.lwt)
+<test/node_cli.{native,byte}>: package(xenstore.client)
+<test/node_cli.{native,byte}>: package(xenstore_transport.lwt)
 <test/node_cli.{native,byte}>: use_vchan
-<test/node_cli.{native,byte}>: pkg_lwt
-<test/node_cli.{native,byte}>: pkg_cmdliner
-<test/node_cli.{native,byte}>: pkg_xenstore.client
-<test/node_cli.{native,byte}>: pkg_xenstore_transport.lwt
-<test/node_cli.{native,byte}>: pkg_xenctrl.lwt
-<test/node_cli.{native,byte}>: pkg_cstruct
-<test/node_cli.{native,byte}>: pkg_cstruct.syntax
-<test/node_cli.{native,byte}>: pkg_mirage
-<test/node_cli.{native,byte}>: pkg_xenctrl
+<test/*.ml{,i}>: package(cmdliner)
+<test/*.ml{,i}>: package(cstruct)
+<test/*.ml{,i}>: package(cstruct.syntax)
+<test/*.ml{,i}>: package(lwt)
+<test/*.ml{,i}>: package(mirage)
+<test/*.ml{,i}>: package(xen-evtchn)
+<test/*.ml{,i}>: package(xen-gnt)
+<test/*.ml{,i}>: package(xenctrl.lwt)
+<test/*.ml{,i}>: package(xenstore.client)
+<test/*.ml{,i}>: package(xenstore_transport.lwt)
 <test/*.ml{,i}>: use_vchan
-<test/*.ml{,i}>: pkg_lwt
-<test/*.ml{,i}>: pkg_cmdliner
-<test/*.ml{,i}>: pkg_xenstore.client
-<test/*.ml{,i}>: pkg_xenstore_transport.lwt
-<test/*.ml{,i}>: pkg_xenctrl.lwt
-<test/*.ml{,i}>: pkg_cstruct
-<test/*.ml{,i}>: pkg_cstruct.syntax
-<test/*.ml{,i}>: pkg_mirage
-<test/*.ml{,i}>: pkg_xenctrl
 # OASIS_STOP
 <*/*.ml>: syntax_camlp4o
 <lib/vchan>: pkg_cstruct.syntax

@@ -1,10 +1,8 @@
-open OS
-
 type clisrv = Client | Server
 
 let (>>=) = Lwt.bind
 
-module V = Vchan.Make(Xs)
+module V = Vchan.Make(OS.Activations)(OS.Xs)
 
 let with_vchan clisrv evtchn_h domid nodepath f =
   (match clisrv with
