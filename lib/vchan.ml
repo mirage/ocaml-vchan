@@ -14,7 +14,29 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open OS
+
+module type ACTIVATIONS = sig
+
+(** Event channels handlers. *)
+
+type event
+(** identifies the an event notification received from xen *)
+
+val program_start: event
+(** represents an event which 'fired' when the program started *)
+
+val after: Eventchn.t -> event -> event Lwt.t
+(** [next channel event] blocks until the system receives an event
+    newer than [event] on channel [channel]. If an event is received
+    while we aren't looking then this will be remembered and the
+    next call to [after] will immediately unblock. If the system
+    is suspended and then resumed, all event channel bindings are invalidated
+    and this function will fail with Generation.Invalid *)
+end
+
+
+open Gnt
+
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -137,7 +159,7 @@ type role =
   | Server of server_params
   | Client of client_params
 
-module Make (Xs: Xs_client_lwt.S) = struct
+module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) = struct
 
 (* The state of a single vchan peer *)
 type t = {
@@ -147,6 +169,7 @@ type t = {
   write: Cstruct.t; (* the ring where you write data to *)
   evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
+  mutable token: A.event;
 }
 
 type state =
@@ -240,7 +263,10 @@ let buffer_space vch =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
-let wait vch = Activations.wait vch.evtchn
+let wait vch = 
+  A.after vch.evtchn vch.token >>= fun token ->
+  vch.token <- token; 
+  Lwt.return ()
 
 let state vch =
   let client_state =
@@ -438,7 +464,7 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
 
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
-  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn }
+  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start }
 
 let client ~evtchn_h ~domid ~xs_path =
   let get_gntref_and_evtchn () =
@@ -529,7 +555,7 @@ let client ~evtchn_h ~domid ~xs_path =
 
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
-  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn }
+  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start }
 
 let close vch =
   (* C impl. notify before shutting down the event channel
