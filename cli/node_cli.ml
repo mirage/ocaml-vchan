@@ -4,6 +4,7 @@ type clisrv = Client | Server
 
 let (>>=) = Lwt.bind
 
+module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client)
 module V = Vchan.Make(Unix_activations)(Xs)
 
 let with_vchan clisrv evtchn_h domid nodepath f =
