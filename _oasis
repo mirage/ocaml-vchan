@@ -10,23 +10,23 @@ OCamlVersion: >= 4.00
 
 Flag cli
   Description: build the UNIX cli
-  Default: false
+  Default: true
 
 Library vchan
   CompiledObject:     best
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage, xenstore.client, xen-evtchn, xen-gnt
+  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt
   CSources:           vchan_stubs.c
 
 Executable node_cli
   Build$:	      flag(cli)
   Install: false
   CompiledObject: best
-  Path: test
+  Path: cli
   MainIs: node_cli.ml
-  BuildDepends: lwt, cmdliner, vchan, xenstore.client, xenstore_transport.lwt, xenctrl.lwt
+  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan
 
 Document api
   Title: Documentation and API reference

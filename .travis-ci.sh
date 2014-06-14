@@ -1,4 +1,4 @@
-OPAM_DEPENDS="lwt cstruct mirage xenstore xenctrl cmdliner ounit"
+OPAM_DEPENDS="lwt cstruct mirage xenstore xenstore_transport io-page xen-evtchn xen-gnt mirage cmdliner"
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
 3.12.1,1.0.0) ppa=avsm/ocaml312+opam10 ;;
@@ -25,7 +25,7 @@ echo OPAM versions
 opam --version
 opam --git-version
 
-opam init git://github.com/OCamlPro/opam-repository
+opam init
 opam install ${OPAM_DEPENDS}
 
 eval `opam config env`
