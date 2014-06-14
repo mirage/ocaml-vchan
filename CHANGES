@@ -1,3 +1,6 @@
+0.9.5 (unreleased)
+* build the CLI by default
+
 0.9.4 (2014-04-29):
 * Update to mirage-1.1.0.
 
