@@ -46,10 +46,11 @@ module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : sig
     | Exited (** when one side has called [close] or crashed *)
     | Connected (** when both sides are open *)
     | WaitingForConnection (** (server only) where no client has yet connected *)
+  with sexp
 
-  exception Not_connected of state
-  (** Exception raised when trying to use a handler that is not
-      currently connected to an endpoint. *)
+  type error = [
+    `Not_connected of state (** can't read or write before we connect *)
+  ]
 
   val server :
     evtchn_h:Eventchn.handle ->
@@ -63,7 +64,7 @@ module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : sig
       connections from domain [~domid], using connection information
       from [~xs_path], with left ring of size [~read_size] and right
       ring of size [~write_size], which accepts reconnections
-      depending on the value of [~persist].  The [~eventchn] argument 
+      depending on the value of [~persist].  The [~eventchn] argument
       is necessary because under Unix, handles do not see events from
       other handles. *)
 
@@ -81,34 +82,11 @@ module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : sig
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)
 
-  val read : t -> int -> string Lwt.t
-  (** [read count vch] read at most [count] characters from [vch]. *)
-
-  val read_into : t -> string -> int -> int -> int Lwt.t
-  (** [read_into vch buf off len] reads up to [len] bytes, stores them
-      in [buf] at offset [off], and returns the number of bytes
-      read. *)
-
-  val read_into_exactly : t -> string -> int -> int -> unit Lwt.t
-  (** [read_into_exactly vch buf off len] reads exactly [len] bytes from
-      [vch] and stores them in [buf] at offset [off].
-
-      Raises [End_of_file] if insufficient data is available. *)
-
-  val write : t -> string -> unit Lwt.t
-  (** [write vch buf] writes [buf] to the ring, and returns when its
-      done (or never).  *)
-
-  val write_from : t -> string -> int -> int -> int Lwt.t
-  (** [write_from vch buf off len] writes up to [len] bytes of [buf]
-      starting at [off] to [vch] and returns [len] eventually (or
-      never). *)
-
-  val write_from_exactly : t -> string -> int -> int -> unit Lwt.t
-  (** [write_from_exactly vch buf off len] writes exactly [len] bytes to
-      [vch] from buffer [buf] at offset [off] if enough space is
-      available, or do not write anything and immediately raises
-      [End_of_file] otherwise. *)
+  include V1_LWT.FLOW
+    with type flow := t
+    and  type error := error
+    and  type 'a io := 'a Lwt.t
+    and  type buffer := Cstruct.t
 
   val state : t -> state
   (** [state vch] is the state of a vchan connection. *)
