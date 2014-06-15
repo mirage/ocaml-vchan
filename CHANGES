@@ -1,3 +1,6 @@
+0.9.6 (2014-06-14)
+* we should depend on mirage-types.lwt, not mirage
+
 0.9.5 (2014-06-14)
 * build the CLI by default
 

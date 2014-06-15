@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        vchan
-Version:     0.9.5
+Version:     0.9.6
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
@@ -17,7 +17,7 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt
+  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt
   CSources:           vchan_stubs.c
 
 Executable node_cli
