@@ -49,18 +49,26 @@ let with_vchan_f vch =
   in
   writethread
 
+open Lwt
+
 let node server domid nodepath : unit Lwt.t = Lwt_main.run (
-  let nodepath = match nodepath with
-    | Some s -> s
-    | None -> Printf.sprintf "/local/domain/%d/data/vchan" domid 
-  in
+  ( match nodepath with
+    | Some s -> return s
+    | None ->
+      ( if server then begin
+          Xs.make () >>= fun c ->
+          Xs.(immediate c (fun h -> read h "domid")) >>= fun domid ->
+          return (int_of_string domid)
+        end else return domid ) >>= fun domid ->
+      return ( Printf.sprintf "/local/domain/%d/data/vchan" domid ) )
+  >>= fun nodepath ->
   (* Listen to incoming events. *)
   let evtchn_h = Eventchn.init () in
   let clisrv = if server then Server else Client in
   with_vchan clisrv evtchn_h domid nodepath with_vchan_f)
 
 let cmd =
-  let doc = "Vchan testing" in
+  let doc = "Establish vchan connections" in
   Term.(pure node $ server $ domid $ nodepath),
   Term.info "node" ~version:"0.1" ~doc
 
