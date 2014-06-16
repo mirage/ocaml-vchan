@@ -36,7 +36,7 @@ end
 
 
 open Gnt
-
+open Lwt
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -458,15 +458,25 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
 
   (* Write the config to XenStore *)
   let ring_ref = Gnt.(string_of_int (List.hd shr_shr.Gntshr.refs)) in
+
   Xs.make ()
   >>= fun c ->
+  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+  let acl =
+    Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
+  let info = [
+    xs_path ^ "/ring-ref", ring_ref;
+    xs_path ^ "/event-channel", string_of_int (Eventchn.to_int evtchn);
+  ] in
   Printf.printf "Writing config into the XenStore\n%!";
-  Xs.(immediate c
+  Xs.(transaction c
         (fun h ->
-           mkdir h xs_path >>= fun () ->
-           write h (xs_path ^ "/ring-ref") ring_ref >>= fun () ->
-           write h (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
-        ))
+           Lwt_list.iter_s (fun (k, v) ->
+             write h k v >>= fun () ->
+             setperms h k acl
+           ) info
+        )
+  )
   >>= fun () ->
 
   (* Return the shared structure *)
@@ -481,13 +491,14 @@ let client ~evtchn_h ~domid ~xs_path =
     Xs.make ()
     >>= fun xs_cli ->
     Xs.(wait xs_cli
-          (fun xsh -> directory xsh xs_path >>= function
-             | [a; b] -> read xsh (xs_path ^ "/ring-ref")
-               >>= fun rref -> read xsh (xs_path ^ "/event-channel")
-               >>= fun evtchn -> Lwt.return (rref, evtchn)
-             | _ -> Lwt.fail Xs_protocol.Eagain))
+      (fun xsh ->
+        try_lwt
+          read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
+          read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
+          return (rref, evtchn)
+        with _ -> fail Xs_protocol.Eagain))
     >>= fun (gntref, evtchn) ->
-    Lwt.return (int_of_string gntref, int_of_string evtchn)
+    return (int_of_string gntref, int_of_string evtchn)
   in
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
 
