@@ -67,6 +67,6 @@
 <cli/*.ml{,i}>: use_vchan
 # OASIS_STOP
 <*/*.ml>: syntax_camlp4o
-<lib/vchan>: pkg_cstruct.syntax
+<lib/vchan.ml>: pkg_cstruct.syntax, pkg_lwt.syntax
 <lib>: include
 true: annot

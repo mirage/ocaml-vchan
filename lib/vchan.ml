@@ -36,7 +36,7 @@ end
 
 
 open Gnt
-
+open Lwt
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -491,13 +491,14 @@ let client ~evtchn_h ~domid ~xs_path =
     Xs.make ()
     >>= fun xs_cli ->
     Xs.(wait xs_cli
-          (fun xsh -> directory xsh xs_path >>= function
-             | [a; b] -> read xsh (xs_path ^ "/ring-ref")
-               >>= fun rref -> read xsh (xs_path ^ "/event-channel")
-               >>= fun evtchn -> Lwt.return (rref, evtchn)
-             | _ -> Lwt.fail Xs_protocol.Eagain))
+      (fun xsh ->
+        try_lwt
+          read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
+          read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
+          return (rref, evtchn)
+        with _ -> fail Xs_protocol.Eagain))
     >>= fun (gntref, evtchn) ->
-    Lwt.return (int_of_string gntref, int_of_string evtchn)
+    return (int_of_string gntref, int_of_string evtchn)
   in
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
 
