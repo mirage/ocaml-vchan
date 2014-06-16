@@ -458,15 +458,25 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
 
   (* Write the config to XenStore *)
   let ring_ref = Gnt.(string_of_int (List.hd shr_shr.Gntshr.refs)) in
+
   Xs.make ()
   >>= fun c ->
+  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+  let acl =
+    Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
+  let info = [
+    xs_path ^ "/ring-ref", ring_ref;
+    xs_path ^ "/event-channel", string_of_int (Eventchn.to_int evtchn);
+  ] in
   Printf.printf "Writing config into the XenStore\n%!";
-  Xs.(immediate c
+  Xs.(transaction c
         (fun h ->
-           mkdir h xs_path >>= fun () ->
-           write h (xs_path ^ "/ring-ref") ring_ref >>= fun () ->
-           write h (xs_path ^ "/event-channel") (string_of_int (Eventchn.to_int evtchn))
-        ))
+           Lwt_list.iter_s (fun (k, v) ->
+             write h k v >>= fun () ->
+             setperms h k acl
+           ) info
+        )
+  )
   >>= fun () ->
 
   (* Return the shared structure *)
