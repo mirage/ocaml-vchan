@@ -1,4 +1,5 @@
 open Cmdliner
+open Sexplib.Std
 
 type clisrv = Client | Server
 
@@ -29,25 +30,31 @@ let nodepath = Arg.(value & opt (some string) None &
 
 let buf = String.create 5000
 
-let with_vchan_f vch = 
-  let readthread = 
+let (>>|=) m f = m >>= function
+| `Ok x -> f x
+| `Eof -> Lwt.fail (Failure "End of file")
+| `Error (`Not_connected state) -> Lwt.fail (Failure (Printf.sprintf "Not in a connected state: %s" (Sexplib.Sexp.to_string (V.sexp_of_state state))))
+
+let with_vchan_f vch =
+  let (_: unit Lwt.t) =
     let rec read_forever vch =
-      V.read_into vch buf 0 5000
-      >>= fun nb_read ->
-      let string_to_print = String.sub buf 0 nb_read in
-      Printf.printf "%s%!" string_to_print;
-      read_forever vch
-    in read_forever vch
-  in
-  let writethread = 
+      V.read vch >>|= fun buf ->
+      Printf.printf "%s%!" (Cstruct.to_string buf);
+      read_forever vch in
+    read_forever vch in
+  let (_: unit Lwt.t) =
     let rec stdin_to_endpoint vch =
       Lwt_io.read_line Lwt_io.stdin
-      >>= fun line -> V.write vch (line ^ "\n")
-      >>= fun () -> stdin_to_endpoint vch
-    in
-    stdin_to_endpoint vch
-  in
-  writethread
+      >>= fun line ->
+      let line = line ^ "\n" in
+      let buf = Cstruct.create (String.length line) in
+      Cstruct.blit_from_string line 0 buf 0 (String.length line);
+      V.write vch buf
+      >>|= fun () ->
+      stdin_to_endpoint vch in
+    stdin_to_endpoint vch in
+  let t, u = Lwt.task () in
+  t
 
 open Lwt
 

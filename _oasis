@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        vchan
-Version:     0.9.6
+Version:     0.9.7
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
@@ -17,7 +17,7 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt
+  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
 Executable node_cli
@@ -26,7 +26,7 @@ Executable node_cli
   CompiledObject: best
   Path: cli
   MainIs: node_cli.ml
-  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan
+  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan, sexplib
 
 Document api
   Title: Documentation and API reference

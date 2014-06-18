@@ -171,14 +171,20 @@ type t = {
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
   mutable waiter: unit Lwt.t option;
   mutable token: A.event;
+  mutable ack_up_to: int; (* FLOW reader has seen this much data *)
 }
 
 type state =
   | Exited
   | Connected
   | WaitingForConnection
+with sexp
 
-exception Not_connected of state
+type error = [
+  `Not_connected of state
+]
+
+type flow
 
 let state_of_live = function
   | 0 -> Ok Exited
@@ -266,8 +272,8 @@ let buffer_space vch =
 
 let wait vch =
   match vch.waiter with
-  | None -> 
-    let waiter = 
+  | None ->
+    let waiter =
       A.after vch.evtchn vch.token >>= fun token ->
       vch.token <- token;
       vch.waiter <- None;
@@ -289,94 +295,79 @@ let state vch =
   | Server { persist } -> if persist then Connected else client_state
   | Client _ -> server_state
 
-let _write_unsafe vch buf off len =
+(* Write as much data as we can without blocking *)
+let _write_noblock vch buf =
+  let len = Cstruct.len buf in
   let real_idx = Int32.(logand (wr_prod vch) (of_int (wr_ring_size vch) - 1l) |> to_int) in
   let avail_contig = wr_ring_size vch - real_idx in
   let avail_contig = if avail_contig > len then len else avail_contig in
   (*Xenctrl.xen_mb ();*)
-  Cstruct.blit_from_string buf off vch.write real_idx avail_contig;
+  Cstruct.blit buf 0 vch.write real_idx avail_contig;
   (if avail_contig < len then (* We rolled across the end of the ring *)
-    Cstruct.blit_from_string buf (off + avail_contig) vch.write 0 (len - avail_contig));
+    Cstruct.blit buf avail_contig vch.write 0 (len - avail_contig));
   (*Xenctrl.xen_wmb ();*)
   set_wr_prod vch Int32.(wr_prod vch + of_int len);
-  send_notify vch Write;
-  len
+  send_notify vch Write
 
-let rec write_from_exactly vch buf off len =
-  if state vch <> Connected then raise (Not_connected (state vch))
-  else
-    let avail = fast_get_buffer_space vch len in
-    if len <= avail then Lwt.return (_write_unsafe vch buf off len |> i_int)
-    else
-    if len > wr_ring_size vch then raise End_of_file
-    else wait vch >>= fun () -> write_from_exactly vch buf off len
-
-let write_from vch buf off len =
-  if state vch <> Connected then raise (Not_connected (state vch))
-  else
-    let rec inner pos =
-      let avail = fast_get_buffer_space vch (len - pos) in
-      let avail = if pos + avail > len then len - pos else avail in
-      let pos = if avail > 0 then pos + _write_unsafe vch buf pos avail else pos in
-      if pos = len then Lwt.return pos else wait vch >>= fun () -> inner pos
-    in inner 0
+(* Write a whole buffer in a blocking fashion *)
+let _write_one vch buf =
+  let len = Cstruct.len buf in
+  let rec inner pos =
+    let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
+    if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
+    let pos = pos + avail in
+    if pos = len
+    then Lwt.return ()
+    else wait vch >>= fun () -> inner pos
+  in inner 0
 
 let write vch buf =
-  let buflen = String.length buf in
-  write_from vch buf 0 buflen >>= fun len -> Lwt.return (i_int len)
-
-(* This is unsafe because:
-
-   - [len] is not checked at all, if it is bigger than the size of the
-    ring the read will be corrupted.
-
-   - There is no notion of "data ready" at all, this function just
-     reads the content of the ring.
-
-   - No check is performed to know if the connection is in the
-     Connected state or not.
-
-*)
-let _read_unsafe_into vch buf off len =
-  let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
-  let avail_contig = rd_ring_size vch - real_idx in
-  let avail_contig = if avail_contig > len then len else avail_contig in
-  (*Xenctrl.xen_rmb ();*)
-  Cstruct.blit_to_string vch.read real_idx buf off avail_contig;
-  (if avail_contig < len then
-     Cstruct.blit_to_string vch.read 0 buf (off + avail_contig) (len - avail_contig)
-  );
-  (*Xenctrl.xen_mb ();*)
-  set_rd_cons vch Int32.(rd_cons vch + of_int len);
-  send_notify vch Read;
-  len
-
-(* Reads exactly [len] bytes if [len < sizeof ring], raises
-   End_of_file otherwise. *)
-let rec read_into_exactly vch buf off len =
-  if state vch <> Connected then raise (Not_connected (state vch))
+  if state vch <> Connected
+  then Lwt.return (`Error (`Not_connected (state vch)))
   else
-    let avail = fast_get_data_ready vch len in
-    if len <= avail then Lwt.return (_read_unsafe_into vch buf off len |> i_int)
-    else
-    if len > rd_ring_size vch then raise End_of_file
-    else wait vch >>= fun () -> read_into_exactly vch buf off len
+    _write_one vch buf >>= fun () ->
+    Lwt.return (`Ok ())
 
-(* Reads as much as it is possible, and return the number of bytes
-   read. *)
-let rec read_into vch buf off len =
-  if state vch <> Connected then raise (Not_connected (state vch))
+let writev vch bufs =
+  if state vch <> Connected
+  then Lwt.return (`Error (`Not_connected (state vch)))
   else
-    let avail = fast_get_data_ready vch len in
-    if avail = 0 then
-      wait vch >>= fun () -> read_into vch buf off len
-    else
-      let len = if len > avail then avail else len in
-      Lwt.return (_read_unsafe_into vch buf off len)
+    Lwt_list.iter_s (_write_one vch) bufs >>= fun () ->
+    Lwt.return (`Ok ())
 
-let read vch count =
-  let buf = String.create count in
-  read_into vch buf 0 count >>= fun len -> Lwt.return (String.sub buf 0 len)
+(* Read a chunk in a blocking fashion. Note this returns a
+   reference to the data in the ring. *)
+let rec _read_one vch =
+  (* wait until at least 1 byte is available *)
+  let avail = fast_get_data_ready vch 1 in
+  if avail = 0
+  then wait vch >>= fun () -> _read_one vch
+  else
+    let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
+    let bytes_before_wraparound = rd_ring_size vch - real_idx in
+    let buf =
+      if bytes_before_wraparound = 0 then begin
+        (* all bytes are in a contiguous block starting at 0 *)
+        Cstruct.sub vch.read 0 avail
+      end else begin
+        (* we'll only consume the bytes before wraparound on this iteration *)
+        Cstruct.sub vch.read real_idx (min avail bytes_before_wraparound)
+      end in
+    Lwt.return buf
+
+let read vch =
+  if state vch <> Connected
+  then Lwt.return (`Error(`Not_connected (state vch)))
+  else begin
+    (* signal the remote that we've consumed the last block of data it sent us *)
+    set_rd_cons vch Int32.(of_int vch.ack_up_to);
+    send_notify vch Read;
+    (* get the fresh data *)
+    _read_one vch >>= fun buf ->
+    (* we'll signal the remote we've consumed this data on the next iteration *)
+    vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
+    Lwt.return (`Ok buf)
+  end
 
 let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
@@ -484,7 +475,8 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
 
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
-  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None }
+  let ack_up_to = 0 in
+  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
 
 let client ~evtchn_h ~domid ~xs_path =
   let get_gntref_and_evtchn () =
@@ -576,7 +568,8 @@ let client ~evtchn_h ~domid ~xs_path =
 
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
-  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None }
+  let ack_up_to = 0 in
+  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
 
 let close vch =
   (* C impl. notify before shutting down the event channel
