@@ -358,7 +358,7 @@ let read vch =
   then Lwt.return (`Error(`Not_connected (state vch)))
   else begin
     (* signal the remote that we've consumed the last block of data it sent us *)
-    set_rd_cons vch Int32.(rd_cons vch + of_int vch.ack_up_to);
+    set_rd_cons vch Int32.(of_int vch.ack_up_to);
     send_notify vch Read;
     (* get the fresh data *)
     _read_one vch >>= fun buf ->
