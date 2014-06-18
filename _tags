@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3a38f36f672da95dd2d3c95694fe23e1)
+# DO NOT EDIT (digest: 5eb5c382fc8761803f57818cb2262c9c)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -24,6 +24,7 @@
 <lib/*.ml{,i}>: pkg_sexplib
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_cstruct.syntax
+<lib/*.ml{,i}>: pkg_mirage-types
 <lib/*.ml{,i}>: pkg_sexplib.syntax
 "lib/vchan_stubs.c": pkg_xen-evtchn
 "lib/vchan_stubs.c": pkg_xen-gnt
@@ -33,6 +34,7 @@
 "lib/vchan_stubs.c": pkg_sexplib
 "lib/vchan_stubs.c": pkg_cstruct
 "lib/vchan_stubs.c": pkg_cstruct.syntax
+"lib/vchan_stubs.c": pkg_mirage-types
 "lib/vchan_stubs.c": pkg_sexplib.syntax
 # Executable node_cli
 <cli/node_cli.{native,byte}>: use_vchan
@@ -53,6 +55,7 @@
 <cli/node_cli.{native,byte}>: pkg_sexplib
 <cli/node_cli.{native,byte}>: pkg_cstruct
 <cli/node_cli.{native,byte}>: pkg_cstruct.syntax
+<cli/node_cli.{native,byte}>: pkg_mirage-types
 <cli/node_cli.{native,byte}>: pkg_sexplib.syntax
 <cli/*.ml{,i}>: use_vchan
 <cli/*.ml{,i}>: pkg_cmdliner
@@ -72,6 +75,7 @@
 <cli/*.ml{,i}>: pkg_sexplib
 <cli/*.ml{,i}>: pkg_cstruct
 <cli/*.ml{,i}>: pkg_cstruct.syntax
+<cli/*.ml{,i}>: pkg_mirage-types
 <cli/*.ml{,i}>: pkg_sexplib.syntax
 # OASIS_STOP
 <*/*.ml>: syntax_camlp4o

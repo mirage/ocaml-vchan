@@ -17,7 +17,7 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Vchan
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt, sexplib, sexplib.syntax
+  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
 Executable node_cli
