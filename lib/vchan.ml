@@ -307,16 +307,15 @@ let _write_noblock vch buf =
     Cstruct.blit buf avail_contig vch.write 0 (len - avail_contig));
   (*Xenctrl.xen_wmb ();*)
   set_wr_prod vch Int32.(wr_prod vch + of_int len);
-  send_notify vch Write;
-  len
+  send_notify vch Write
 
 (* Write a whole buffer in a blocking fashion *)
 let _write_one vch buf =
   let len = Cstruct.len buf in
   let rec inner pos =
-    let avail = fast_get_buffer_space vch (len - pos) in
-    let avail = if pos + avail > len then len - pos else avail in
-    let pos = if avail > 0 then pos + _write_noblock vch buf else pos in
+    let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
+    if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
+    let pos = pos + avail in
     if pos = len
     then Lwt.return ()
     else wait vch >>= fun () -> inner pos
