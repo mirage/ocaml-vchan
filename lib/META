@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 65984070729422ec0dd81f2db2d8744b)
-version = "0.9.6"
+# DO NOT EDIT (digest: d6ca2bfb1296e085f2a0547f859115cd)
+version = "0.9.7"
 description = "Xen libvchan protocol implementation"
 requires =
 "lwt cstruct cstruct.syntax mirage-types.lwt xenstore.client xen-evtchn xen-gnt sexplib sexplib.syntax"

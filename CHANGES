@@ -1,7 +1,8 @@
-0.9.7 (unreleased)
+0.9.7 (2014-06-18)
 * cli: server: choose a sensible default xenstore path
 * cli: server: set the xenstore permissions correctly
 * cli: client: don't assume we have perms to read the directory
+* Implement Mirage V1_LWT.FLOW signature
 
 0.9.6 (2014-06-14)
 * we should depend on mirage-types.lwt, not mirage

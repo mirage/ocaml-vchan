@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        vchan
-Version:     0.9.6
+Version:     0.9.7
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
