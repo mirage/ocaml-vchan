@@ -338,18 +338,21 @@ let writev vch bufs =
 (* Read a chunk in a blocking fashion. Note this returns a
    reference to the data in the ring. *)
 let rec _read_one vch =
+  (* wait until at least 1 byte is available *)
   let avail = fast_get_data_ready vch 1 in
   if avail = 0
   then wait vch >>= fun () -> _read_one vch
   else
     let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
-    (* 'avail' bytes may have wrapped around the ring.
-       'avail_config' bytes are available before the wrap *)
-    let avail_config = rd_ring_size vch - real_idx in
+    let bytes_before_wraparound = rd_ring_size vch - real_idx in
     let buf =
-      if avail_config > 0
-      then Cstruct.sub vch.read real_idx avail_config
-      else Cstruct.sub vch.read 0 avail in
+      if bytes_before_wraparound = 0 then begin
+        (* all bytes are in a contiguous block starting at 0 *)
+        Cstruct.sub vch.read 0 avail
+      end else begin
+        (* we'll only consume the bytes before wraparound on this iteration *)
+        Cstruct.sub vch.read real_idx (min avail bytes_before_wraparound)
+      end in
     Lwt.return buf
 
 let read vch =
