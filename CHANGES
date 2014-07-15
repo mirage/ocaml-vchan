@@ -1,3 +1,6 @@
+1.0.0 (2014-07-15)
+* test VM: uses the V1_LWT.FLOW signature
+
 0.9.7 (2014-06-18)
 * cli: server: choose a sensible default xenstore path
 * cli: server: set the xenstore permissions correctly
