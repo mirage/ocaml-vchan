@@ -36,7 +36,7 @@ val after: Eventchn.t -> event -> event Lwt.t
     and this function will fail with Generation.Invalid *)
 end
 
-module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : sig
+module type S = sig
   type t
   (** Type of a vchan handler. *)
 
@@ -99,3 +99,5 @@ module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : sig
   (** [buffer_space vch] is the amount of data it is currently possible
       to send on [vch]. *)
 end
+
+module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : S

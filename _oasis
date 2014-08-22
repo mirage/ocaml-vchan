@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        vchan
-Version:     1.0.0
+Version:     1.1.0
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
@@ -20,13 +20,22 @@ Library vchan
   BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
+Library vchan_lwt_unix
+  CompiledObject:     best
+  Path:               lwt
+  Findlibname:        lwt
+  Findlibparent:      vchan
+  Modules:            Vchan_lwt_unix
+  BuildDepends:       lwt, xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
+
 Executable node_cli
   Build$:	      flag(cli)
   Install: false
   CompiledObject: best
   Path: cli
   MainIs: node_cli.ml
-  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan, sexplib
+  BuildDepends: cmdliner, lwt, vchan, vchan.lwt
+#  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan, sexplib
 
 Document api
   Title: Documentation and API reference
