@@ -70,3 +70,72 @@ module IO = struct
   let flush = Lwt_io.flush
 
 end
+
+open Lwt
+
+let (>>|=) m f = m >>= function
+| `Ok x -> f x
+| `Eof -> Lwt.fail (Failure "End of file")
+| `Error (`Not_connected state) -> Lwt.fail (Failure (Printf.sprintf "Not in a connected state: %s" (Sexplib.Sexp.to_string (M.sexp_of_state state))))
+
+let reader t =
+  (* Last buffer from vchan *)
+  let frag = ref (Cstruct.create 0) in
+  let rec aux buf ofs len =
+    if len = 0
+    then return 0
+    else
+      let available = Cstruct.len !frag in
+      if available = 0 then begin
+        M.read t >>|= fun b ->
+        frag := b;
+        aux buf ofs len
+      end else begin
+        let n = min available len in
+        Cstruct.blit (Cstruct.of_bigarray buf) ofs !frag 0 n;
+        frag := Cstruct.shift !frag n;
+        return n
+      end in
+  aux
+
+let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
+  let b = Cstruct.sub (Cstruct.of_bigarray buf) ofs len in
+  M.write t b >>|= fun () ->
+  return len
+
+module Client = struct
+  open Lwt_io
+
+  let connect ~domid ~path =
+    let evtchn_h = Eventchn.init () in
+    M.client ~evtchn_h ~domid ~xs_path:path
+    >>= fun t ->
+
+    let ic = Lwt_io.make ~mode:Lwt_io.input (reader t) in
+    let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+    return (ic, oc)
+
+  let close (ic, oc) =
+    Lwt_io.close ic >>= fun () ->
+    Lwt_io.close oc
+end
+
+module Server = struct
+  open Lwt_io
+
+  let read_size = 65536
+  let write_size = 65536
+
+  let init ~domid ~path ?(stop = return ()) callback =
+    let evtchn_h = Eventchn.init () in
+    M.server ~evtchn_h ~domid ~xs_path:path
+      ~read_size ~write_size ~persist:true
+    >>= fun t ->
+        
+    let ic = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.input (reader t) in
+    let oc = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.output (writer t) in
+    callback ic oc
+
+  let close = Client.close
+end
+

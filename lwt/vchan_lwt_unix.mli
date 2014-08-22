@@ -38,3 +38,24 @@ module IO : Cohttp_IO_S
  with type 'a t = 'a Lwt.t
  and type ic = Lwt_io.input_channel
  and type oc = Lwt_io.output_channel
+
+module Client : sig
+  open Lwt_io
+
+  val connect : domid:int -> path:string -> (input channel * output channel) Lwt.t
+
+  val close : input channel * output channel -> unit Lwt.t
+end
+
+module Server : sig
+  open Lwt_io
+
+  val init :
+    domid: int -> path: string ->
+    ?stop:(unit Lwt.t) ->
+    (input channel -> output channel -> unit Lwt.t) ->
+    unit Lwt.t
+
+  val close : input channel * output channel -> unit Lwt.t
+end
+
