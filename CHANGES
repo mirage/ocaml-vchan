@@ -1,3 +1,6 @@
+1.1.0 (unreleased)
+* add Vchan_lwt_unix with instantiation of functor
+
 1.0.0 (2014-07-15)
 * test VM: uses the V1_LWT.FLOW signature
 

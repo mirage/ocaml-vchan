@@ -33,6 +33,69 @@ val after: Eventchn.t -> event -> event Lwt.t
     is suspended and then resumed, all event channel bindings are invalidated
     and this function will fail with Generation.Invalid *)
 end
+module type S = sig
+  type t
+  (** Type of a vchan handler. *)
+
+  (** Type of the state of a connection between a vchan client and
+      server. *)
+  type state =
+    | Exited (** when one side has called [close] or crashed *)
+    | Connected (** when both sides are open *)
+    | WaitingForConnection (** (server only) where no client has yet connected *)
+  with sexp
+
+  type error = [
+    `Not_connected of state (** can't read or write before we connect *)
+  ]
+
+  val server :
+    evtchn_h:Eventchn.handle ->
+    domid:int ->
+    xs_path:string ->
+    read_size:int ->
+    write_size:int ->
+    persist:bool -> t Lwt.t
+  (** [server ~evtchn_h ~domid ~xs_path ~read_size
+      ~write_size ~persist] initializes a vchan server listening to
+      connections from domain [~domid], using connection information
+      from [~xs_path], with left ring of size [~read_size] and right
+      ring of size [~write_size], which accepts reconnections
+      depending on the value of [~persist].  The [~eventchn] argument
+      is necessary because under Unix, handles do not see events from
+      other handles. *)
+
+  val client :
+    evtchn_h:Eventchn.handle ->
+    domid:int ->
+    xs_path:string -> t Lwt.t
+  (** [client ~evtchn_h ~domid ~xs_path] initializes a vchan
+      client to communicate with domain [~domid] using connection
+      information from [~xs_path]. See the above function for the
+      definition of field [~evtchn_h]. *)
+
+  val close : t -> unit
+  (** Close a vchan. This deallocates the vchan and attempts to free
+      its resources. The other side is notified of the close, but can
+      still read any data pending prior to the close. *)
+
+  include V1_LWT.FLOW
+    with type flow := t
+    and  type error := error
+    and  type 'a io := 'a Lwt.t
+    and  type buffer := Cstruct.t
+
+  val state : t -> state
+  (** [state vch] is the state of a vchan connection. *)
+
+  val data_ready : t -> int
+  (** [data_ready vch] is the amount of data ready to be read on [vch],
+      in bytes. *)
+
+  val buffer_space : t -> int
+  (** [buffer_space vch] is the amount of data it is currently possible
+      to send on [vch]. *)
+end
 
 
 open Gnt
@@ -413,8 +476,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
 
   set_vchan_interface_right_order v (order_of_buffer_location read_l);
   set_vchan_interface_left_order v (order_of_buffer_location write_l);
-  Printf.printf "Server: right_order = %d, left_order = %d\n%!"
-    (order_of_buffer_location read_l) (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
@@ -422,9 +483,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   | External n ->
     let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
     let pages = Gnt.Gntshr.(share.mapping) in
-    List.iter (fun r ->
-        Printf.printf "allocate_buffer_locations: gntref = %d\n%!" r)
-      Gnt.Gntshr.(share.refs);
     Some share, Cstruct.of_bigarray pages in
 
   let read_shr, read_buf = allocate_buffer_locations read_l in
@@ -459,7 +517,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
     xs_path ^ "/ring-ref", ring_ref;
     xs_path ^ "/event-channel", string_of_int (Eventchn.to_int evtchn);
   ] in
-  Printf.printf "Writing config into the XenStore\n%!";
   Xs.(transaction c
         (fun h ->
            Lwt_list.iter_s (fun (k, v) ->
@@ -471,9 +528,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   >>= fun () ->
 
   (* Return the shared structure *)
-  Printf.printf "Shared page is:\n%!";
-  Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
-
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
@@ -495,8 +549,6 @@ let client ~evtchn_h ~domid ~xs_path =
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
 
   (* Map the vchan interface page *)
-  Printf.printf "Client initializing: Received gntref = %s, evtchn = %d\n%!"
-  (string_of_int gntref) evtchn;
   let gnttab_h = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
   let vchan_intf_cstruct = Cstruct.of_bigarray
@@ -507,8 +559,6 @@ let client ~evtchn_h ~domid ~xs_path =
   let nb_right_pages = 1 lsl (get_ro vchan_intf_cstruct - 12) in
   let vchan_intf_cstruct = Cstruct.sub vchan_intf_cstruct 0
       (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
-  Printf.printf "Mapped the ring shared page:\n%!";
-  Cstruct.hexdump vchan_intf_cstruct;
 
   (* Set initial values in vchan_intf *)
   set_vchan_interface_cli_live vchan_intf_cstruct 1;
@@ -516,7 +566,6 @@ let client ~evtchn_h ~domid ~xs_path =
 
   (* Bind the event channel *)
   let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
-  Printf.printf "Correctly bound evtchn number %d\n%!" (Eventchn.to_int evtchn);
 
   (* Map the rings *)
   let rings_of_vchan_intf v =
