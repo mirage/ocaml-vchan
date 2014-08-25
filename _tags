@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2d54f788b8bfd335da1eca80ca6a8ebe)
+# DO NOT EDIT (digest: c21fb258fbb2a2027ccacc025a2bf955)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -56,27 +56,27 @@
 <lwt/*.ml{,i}>: pkg_xen-gnt
 <lwt/*.ml{,i}>: pkg_sexplib
 <lwt/*.ml{,i}>: pkg_sexplib.syntax
-# Executable node_cli
-<cli/node_cli.{native,byte}>: use_vchan_lwt_unix
-<cli/node_cli.{native,byte}>: use_vchan
-<cli/node_cli.{native,byte}>: pkg_cmdliner
-<cli/node_cli.{native,byte}>: pkg_lwt
-<cli/node_cli.{native,byte}>: pkg_xen-evtchn.unix
-<cli/node_cli.{native,byte}>: pkg_xen-evtchn.unix.activations
-<cli/node_cli.{native,byte}>: pkg_io-page.unix
-<cli/node_cli.{native,byte}>: pkg_xen-gnt.unix
-<cli/node_cli.{native,byte}>: pkg_xenstore
-<cli/node_cli.{native,byte}>: pkg_xenstore.client
-<cli/node_cli.{native,byte}>: pkg_xenstore_transport
-<cli/node_cli.{native,byte}>: pkg_xenstore_transport.lwt
-<cli/node_cli.{native,byte}>: pkg_mirage-types.lwt
-<cli/node_cli.{native,byte}>: pkg_cstruct
-<cli/node_cli.{native,byte}>: pkg_cstruct.syntax
-<cli/node_cli.{native,byte}>: pkg_mirage-types
-<cli/node_cli.{native,byte}>: pkg_xen-evtchn
-<cli/node_cli.{native,byte}>: pkg_xen-gnt
-<cli/node_cli.{native,byte}>: pkg_sexplib
-<cli/node_cli.{native,byte}>: pkg_sexplib.syntax
+# Executable xencat
+<cli/xencat.{native,byte}>: use_vchan_lwt_unix
+<cli/xencat.{native,byte}>: use_vchan
+<cli/xencat.{native,byte}>: pkg_cmdliner
+<cli/xencat.{native,byte}>: pkg_lwt
+<cli/xencat.{native,byte}>: pkg_xen-evtchn.unix
+<cli/xencat.{native,byte}>: pkg_xen-evtchn.unix.activations
+<cli/xencat.{native,byte}>: pkg_io-page.unix
+<cli/xencat.{native,byte}>: pkg_xen-gnt.unix
+<cli/xencat.{native,byte}>: pkg_xenstore
+<cli/xencat.{native,byte}>: pkg_xenstore.client
+<cli/xencat.{native,byte}>: pkg_xenstore_transport
+<cli/xencat.{native,byte}>: pkg_xenstore_transport.lwt
+<cli/xencat.{native,byte}>: pkg_mirage-types.lwt
+<cli/xencat.{native,byte}>: pkg_cstruct
+<cli/xencat.{native,byte}>: pkg_cstruct.syntax
+<cli/xencat.{native,byte}>: pkg_mirage-types
+<cli/xencat.{native,byte}>: pkg_xen-evtchn
+<cli/xencat.{native,byte}>: pkg_xen-gnt
+<cli/xencat.{native,byte}>: pkg_sexplib
+<cli/xencat.{native,byte}>: pkg_sexplib.syntax
 <cli/*.ml{,i}>: use_vchan_lwt_unix
 <cli/*.ml{,i}>: use_vchan
 <cli/*.ml{,i}>: pkg_cmdliner

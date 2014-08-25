@@ -28,12 +28,12 @@ Library vchan_lwt_unix
   Modules:            Vchan_lwt_unix
   BuildDepends:       lwt, xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
 
-Executable node_cli
+Executable xencat
   Build$:	      flag(cli)
   Install: false
   CompiledObject: best
   Path: cli
-  MainIs: node_cli.ml
+  MainIs: xencat.ml
   BuildDepends: cmdliner, lwt, vchan, vchan.lwt
 #  BuildDepends: cmdliner, io-page.unix, io-page, xen-evtchn, xen-evtchn.unix, xen-evtchn.unix.activations, xen-gnt.unix, xen-gnt, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, lwt, mirage-types.lwt, vchan, sexplib
 
