@@ -92,7 +92,7 @@ let reader t =
         aux buf ofs len
       end else begin
         let n = min available len in
-        Cstruct.blit (Cstruct.of_bigarray buf) ofs !frag 0 n;
+        Cstruct.blit !frag 0 (Cstruct.of_bigarray buf) ofs n;
         frag := Cstruct.shift !frag n;
         return n
       end in
