@@ -42,7 +42,10 @@ module IO : Cohttp_IO_S
 module Client : sig
   open Lwt_io
 
-  val connect : domid:int -> path:string -> (input channel * output channel) Lwt.t
+  val connect :
+    domid:int -> path:string
+    -> unit
+    -> (input channel * output channel) Lwt.t
 
   val close : input channel * output channel -> unit Lwt.t
 end
@@ -50,11 +53,11 @@ end
 module Server : sig
   open Lwt_io
 
-  val init :
-    domid: int -> path: string ->
-    ?stop:(unit Lwt.t) ->
-    (input channel -> output channel -> unit Lwt.t) ->
-    unit Lwt.t
+  val connect :
+    domid: int -> path: string
+    -> ?stop:(unit Lwt.t)
+    -> unit
+    -> (input channel * output channel) Lwt.t
 
   val close : input channel * output channel -> unit Lwt.t
 end

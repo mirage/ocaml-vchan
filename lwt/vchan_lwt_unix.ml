@@ -106,7 +106,7 @@ let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
 module Client = struct
   open Lwt_io
 
-  let connect ~domid ~path =
+  let connect ~domid ~path () =
     let evtchn_h = Eventchn.init () in
     M.client ~evtchn_h ~domid ~xs_path:path
     >>= fun t ->
@@ -126,7 +126,7 @@ module Server = struct
   let read_size = 65536
   let write_size = 65536
 
-  let init ~domid ~path ?(stop = return ()) callback =
+  let connect ~domid ~path ?(stop = return ()) () =
     let evtchn_h = Eventchn.init () in
     M.server ~evtchn_h ~domid ~xs_path:path
       ~read_size ~write_size ~persist:true
@@ -134,7 +134,7 @@ module Server = struct
         
     let ic = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.input (reader t) in
     let oc = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.output (writer t) in
-    callback ic oc
+    return (ic, oc)
 
   let close = Client.close
 end
