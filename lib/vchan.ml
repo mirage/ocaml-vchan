@@ -476,8 +476,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
 
   set_vchan_interface_right_order v (order_of_buffer_location read_l);
   set_vchan_interface_left_order v (order_of_buffer_location write_l);
-  Printf.printf "Server: right_order = %d, left_order = %d\n%!"
-    (order_of_buffer_location read_l) (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
@@ -485,9 +483,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   | External n ->
     let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
     let pages = Gnt.Gntshr.(share.mapping) in
-    List.iter (fun r ->
-        Printf.printf "allocate_buffer_locations: gntref = %d\n%!" r)
-      Gnt.Gntshr.(share.refs);
     Some share, Cstruct.of_bigarray pages in
 
   let read_shr, read_buf = allocate_buffer_locations read_l in
@@ -522,7 +517,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
     xs_path ^ "/ring-ref", ring_ref;
     xs_path ^ "/event-channel", string_of_int (Eventchn.to_int evtchn);
   ] in
-  Printf.printf "Writing config into the XenStore\n%!";
   Xs.(transaction c
         (fun h ->
            Lwt_list.iter_s (fun (k, v) ->
@@ -534,7 +528,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   >>= fun () ->
 
   (* Return the shared structure *)
-  Printf.printf "Shared page is:\n%!";
   Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
 
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
@@ -558,8 +551,6 @@ let client ~evtchn_h ~domid ~xs_path =
   get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
 
   (* Map the vchan interface page *)
-  Printf.printf "Client initializing: Received gntref = %s, evtchn = %d\n%!"
-  (string_of_int gntref) evtchn;
   let gnttab_h = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
   let vchan_intf_cstruct = Cstruct.of_bigarray
@@ -570,8 +561,6 @@ let client ~evtchn_h ~domid ~xs_path =
   let nb_right_pages = 1 lsl (get_ro vchan_intf_cstruct - 12) in
   let vchan_intf_cstruct = Cstruct.sub vchan_intf_cstruct 0
       (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
-  Printf.printf "Mapped the ring shared page:\n%!";
-  Cstruct.hexdump vchan_intf_cstruct;
 
   (* Set initial values in vchan_intf *)
   set_vchan_interface_cli_live vchan_intf_cstruct 1;
@@ -579,7 +568,6 @@ let client ~evtchn_h ~domid ~xs_path =
 
   (* Bind the event channel *)
   let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
-  Printf.printf "Correctly bound evtchn number %d\n%!" (Eventchn.to_int evtchn);
 
   (* Map the rings *)
   let rings_of_vchan_intf v =
