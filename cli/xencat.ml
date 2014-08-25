@@ -18,15 +18,13 @@ let with_vchan clisrv evtchn_h domid nodepath f =
   >>= fun vch ->
   f vch
 
-let server =
+let listen =
   let doc = "Act as a server rather than a client." in
-  Arg.(value & flag & info [ "s"; "server"] ~doc)
+  Arg.(value & flag & info [ "l"; "listen"] ~doc)
 
-let domid = Arg.(required & pos 0 (some int) None &
-                   info ~docv:"DOMID" ~doc:"Domain id of the remote endpoint." [])
+let domid = Arg.(required & pos 0 (some int) None & info ~docv:"DOMID" ~doc:"Domain id of the remote endpoint." [])
 
-let nodepath = Arg.(value & opt (some string) None &
-                    info ["n"; "nodepath"] ~docv:"NODEPATH" ~doc:"Full Xenstore path of the config (defaults to /local/domain/<domid>/data/vchan)." )
+let nodepath = Arg.(value & pos 1 (some string) None & info ~docv:"PATH" ~doc:"Xenstore path used to identify the connection (defaults to /local/domain/<domid>/data/vchan)." [])
 
 let buf = String.create 5000
 
@@ -58,11 +56,11 @@ let with_vchan_f vch =
 
 open Lwt
 
-let node server domid nodepath : unit Lwt.t = Lwt_main.run (
+let node listen domid nodepath : unit Lwt.t = Lwt_main.run (
   ( match nodepath with
     | Some s -> return s
     | None ->
-      ( if server then begin
+      ( if listen then begin
           Xs.make () >>= fun c ->
           Xs.(immediate c (fun h -> read h "domid")) >>= fun domid ->
           return (int_of_string domid)
@@ -71,13 +69,17 @@ let node server domid nodepath : unit Lwt.t = Lwt_main.run (
   >>= fun nodepath ->
   (* Listen to incoming events. *)
   let evtchn_h = Eventchn.init () in
-  let clisrv = if server then Server else Client in
+  let clisrv = if listen then Server else Client in
   with_vchan clisrv evtchn_h domid nodepath with_vchan_f)
 
 let cmd =
   let doc = "Establish vchan connections" in
-  Term.(pure node $ server $ domid $ nodepath),
-  Term.info "node" ~version:"0.1" ~doc
+  let man = [
+    `S "DESCRIPTION";
+    `P "Establish a connection to a remote Xen domain and transfer data over stdin/stdout, in a similar way to 'nc'";
+  ] in
+  Term.(pure node $ listen $ domid $ nodepath),
+  Term.info "xencat" ~version:"0.1" ~doc ~man
 
 let () =
   match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
