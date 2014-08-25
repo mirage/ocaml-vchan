@@ -528,8 +528,6 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   >>= fun () ->
 
   (* Return the shared structure *)
-  Cstruct.hexdump (Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_read_pages+nb_write_pages)));
-
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
