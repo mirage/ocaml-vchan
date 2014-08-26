@@ -73,11 +73,6 @@ end
 
 open Lwt
 
-let (>>|=) m f = m >>= function
-| `Ok x -> f x
-| `Eof -> Lwt.fail (Failure "End of file")
-| `Error (`Unknown msg) -> Lwt.fail (Failure msg)
-
 let reader t =
   (* Last buffer from vchan *)
   let frag = ref (Cstruct.create 0) in
@@ -87,9 +82,12 @@ let reader t =
     else
       let available = Cstruct.len !frag in
       if available = 0 then begin
-        M.read t >>|= fun b ->
-        frag := b;
-        aux buf ofs len
+        M.read t >>= function
+        | `Ok b ->
+          frag := b;
+          aux buf ofs len
+        | `Eof -> return 0
+        | `Error (`Unknown msg) -> Lwt.fail (Failure msg)
       end else begin
         let n = min available len in
         Cstruct.blit !frag 0 (Cstruct.of_bigarray buf) ofs n;
@@ -100,8 +98,13 @@ let reader t =
 
 let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   let b = Cstruct.sub (Cstruct.of_bigarray buf) ofs len in
-  M.write t b >>|= fun () ->
-  return len
+  M.write t b >>= function
+  | `Ok () ->
+    return len
+  | `Eof ->
+    return 0
+  | `Error (`Unknown msg) ->
+    Lwt.fail (Failure msg)
 
 module Client = struct
   open Lwt_io
