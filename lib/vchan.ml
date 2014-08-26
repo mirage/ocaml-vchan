@@ -540,10 +540,22 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   )
   >>= fun () ->
 
-  (* Return the shared structure *)
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
-  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
+  let remote_port = port and remote_domid = domid in
+  let vch = { shared_page=v; role;
+              read=read_buf; write=write_buf; evtchn_h; evtchn;
+              token=A.program_start; waiter=None; ack_up_to } in
+  (* Wait for the connection *)
+  let rec loop event =
+    if state vch = WaitingForConnection then begin
+      A.after evtchn event >>= fun event -> 
+      loop event
+    end else return () in
+  loop A.program_start
+  >>= fun () ->
+
+  return vch
 
 let client ~evtchn_h ~domid ~port =
   let get_gntref_and_evtchn () =
@@ -632,6 +644,10 @@ let client ~evtchn_h ~domid ~port =
       | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
 
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
+
+  (* Signal the server so it knows we have connected *)
+  Eventchn.notify evtchn_h evtchn;
+
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
   Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
