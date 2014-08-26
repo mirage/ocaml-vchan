@@ -46,8 +46,6 @@ module Client : sig
     domid:int -> port:Vchan.Port.t
     -> unit
     -> (input channel * output channel) Lwt.t
-
-  val close : input channel * output channel -> unit Lwt.t
 end
 
 module Server : sig
@@ -55,10 +53,7 @@ module Server : sig
 
   val connect :
     domid: int -> port:Vchan.Port.t
-    -> ?stop:(unit Lwt.t)
     -> unit
     -> (input channel * output channel) Lwt.t
-
-  val close : input channel * output channel -> unit Lwt.t
 end
 

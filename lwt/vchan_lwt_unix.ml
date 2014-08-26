@@ -114,13 +114,11 @@ module Client = struct
     M.client ~evtchn_h ~domid ~port
     >>= fun t ->
 
-    let ic = Lwt_io.make ~mode:Lwt_io.input (reader t) in
+    let close () = M.close t in
+
+    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
     let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
     return (ic, oc)
-
-  let close (ic, oc) =
-    Lwt_io.close ic >>= fun () ->
-    Lwt_io.close oc
 end
 
 module Server = struct
@@ -129,16 +127,16 @@ module Server = struct
   let read_size = 65536
   let write_size = 65536
 
-  let connect ~domid ~port ?(stop = return ()) () =
+  let connect ~domid ~port () =
     let evtchn_h = Eventchn.init () in
     M.server ~evtchn_h ~domid ~port
       ~read_size ~write_size
     >>= fun t ->
-        
-    let ic = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.input (reader t) in
-    let oc = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.output (writer t) in
-    return (ic, oc)
 
-  let close = Client.close
+    let close () = M.close t in
+
+    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
+    let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+    return (ic, oc)
 end
 
