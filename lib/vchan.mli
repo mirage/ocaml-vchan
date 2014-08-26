@@ -89,7 +89,7 @@ module type S = sig
   (** [client ~evtchn_h ~domid ~port] connects to a vchan server running
       on [~domid] with [~port]. *)
 
-  val close : t -> unit
+  val close : t -> unit Lwt.t
   (** Close a vchan. This deallocates the vchan and attempts to free
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)

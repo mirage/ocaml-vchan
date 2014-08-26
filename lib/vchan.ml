@@ -83,7 +83,7 @@ module type S = sig
     domid:int ->
     port:Port.t -> t Lwt.t
 
-  val close : t -> unit
+  val close : t -> unit Lwt.t
   (** Close a vchan. This deallocates the vchan and attempts to free
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)
@@ -235,6 +235,8 @@ module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) = struct
 
 (* The state of a single vchan peer *)
 type t = {
+  remote_domid: int;
+  remote_port: Port.t;
   shared_page: Cstruct.t; (* the shared metadata *)
   role: role;
   read: Cstruct.t; (* the ring where you read data from *)
@@ -543,7 +545,7 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
-  let vch = { shared_page=v; role;
+  let vch = { remote_port; remote_domid; shared_page=v; role;
               read=read_buf; write=write_buf; evtchn_h; evtchn;
               token=A.program_start; waiter=None; ack_up_to } in
   (* Wait for the connection *)
@@ -650,7 +652,8 @@ let client ~evtchn_h ~domid ~port =
 
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
-  Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
+  let remote_port = port and remote_domid = domid in
+  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
 
 let close vch =
   match vch.role with
@@ -661,14 +664,37 @@ let close vch =
     Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) read_map;
     Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) write_map;
     Gnt.Gnttab.unmap_exn gnttab_h shr_map;
-    Gnt.Gnttab.interface_close gnttab_h
+    Gnt.Gnttab.interface_close gnttab_h;
+    return ()
+
   | Server { gntshr_h; shr_shr; read_shr; write_shr } ->
     set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
     Eventchn.notify vch.evtchn_h vch.evtchn;
 
+    (* Remove the advertising in xenstore *)
+    Xs.make ()
+    >>= fun c ->
+    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+    Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
+    let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath vch.remote_domid vch.remote_port in
+    Xs.(transaction c
+        (fun h ->
+           rm h xs_path
+           >>= fun () ->
+           (* If there are no more connections to remote_domid, remove the whole directory *)
+           let dir = Filename.dirname xs_path in
+           directory h dir
+           >>= function
+           | [] -> rm h dir
+           | _ -> return ()
+        )
+    )
+    >>= fun () ->
+
     Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) read_shr;
     Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
     Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
-    Gnt.Gntshr.interface_close gntshr_h
+    Gnt.Gntshr.interface_close gntshr_h;
+    return ()
 
 end
