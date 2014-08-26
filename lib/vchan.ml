@@ -540,10 +540,22 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   )
   >>= fun () ->
 
-  (* Return the shared structure *)
   let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
-  Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
+  let remote_port = port and remote_domid = domid in
+  let vch = { shared_page=v; role;
+              read=read_buf; write=write_buf; evtchn_h; evtchn;
+              token=A.program_start; waiter=None; ack_up_to } in
+  (* Wait for the connection *)
+  let rec loop event =
+    if state vch = WaitingForConnection then begin
+      A.after evtchn event >>= fun event -> 
+      loop event
+    end else return () in
+  loop A.program_start
+  >>= fun () ->
+
+  return vch
 
 let client ~evtchn_h ~domid ~port =
   let get_gntref_and_evtchn () =
