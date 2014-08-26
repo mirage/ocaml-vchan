@@ -36,6 +36,16 @@ val after: Eventchn.t -> event -> event Lwt.t
     and this function will fail with Generation.Invalid *)
 end
 
+module Port: sig
+  type t
+  (** uniquely identifies one of many connections between a pair of
+      domains. *)
+
+  val of_string: string -> [ `Ok of t | `Error of string ]
+
+  val to_string: t -> string
+end
+
 module type S = sig
   type t
   (** Type of a vchan handler. *)
@@ -55,27 +65,29 @@ module type S = sig
   val server :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    xs_path:string ->
+    port:Port.t ->
     read_size:int ->
     write_size:int ->
     persist:bool -> t Lwt.t
-  (** [server ~evtchn_h ~domid ~xs_path ~read_size
-      ~write_size ~persist] initializes a vchan server listening to
-      connections from domain [~domid], using connection information
-      from [~xs_path], with left ring of size [~read_size] and right
-      ring of size [~write_size], which accepts reconnections
-      depending on the value of [~persist].  The [~eventchn] argument
-      is necessary because under Unix, handles do not see events from
-      other handles. *)
+  (** [server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist]
+      initializes a vchan server listening to a connection from [~domid]
+      to [~port] (which must be a string containing only characters
+      [a-zA-Z0-9_-]). A shared buffer of length [~read_size] will be
+      used for reading on the server side and a shared buffer of length
+      [~write_size] will be used for writing on the server side.
+
+      If [~persist] is true then the server will remain after a client
+      disconnects, allowing reconnection.
+
+      The [~eventchn] argument is necessary because under Unix, handles
+      do not see events from other handles. *)
 
   val client :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    xs_path:string -> t Lwt.t
-  (** [client ~evtchn_h ~domid ~xs_path] initializes a vchan
-      client to communicate with domain [~domid] using connection
-      information from [~xs_path]. See the above function for the
-      definition of field [~evtchn_h]. *)
+    port:Port.t -> t Lwt.t
+  (** [client ~evtchn_h ~domid ~port] connects to a vchan server running
+      on [~domid] with [~port]. *)
 
   val close : t -> unit
   (** Close a vchan. This deallocates the vchan and attempts to free

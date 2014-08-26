@@ -18,13 +18,13 @@ On both of your VMs, find their domain ids:
 xenstore-read domid
 ```
 
-On the domain with domid <local domid>, listen for a single connection from
-<remote domid>:
+On the domain with domid <server domid>, listen for a single connection from
+<client domid> on port <port>:
 ```
-xencat -l <remote domid>
+xencat -l <client domid> <port>
 ```
 
-On the domain with domid <remote domid>, connect to <local domid>:
+On the domain with domid <client domid>, connect to <server domid>:
 ```
-xencat <local domid>
+xencat <server domid> <port>
 ```
