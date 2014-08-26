@@ -67,7 +67,7 @@ module type S = sig
   with sexp
 
   type error = [
-    `Not_connected of state (** can't read or write before we connect *)
+    `Unknown of string
   ]
 
   val server :
@@ -253,7 +253,7 @@ type state =
 with sexp
 
 type error = [
-  `Not_connected of state
+  `Unknown of string
 ]
 
 type flow = t
@@ -383,14 +383,14 @@ let _write_one vch buf =
 
 let write vch buf =
   if state vch <> Connected
-  then Lwt.return (`Error (`Not_connected (state vch)))
+  then Lwt.return `Eof
   else
     _write_one vch buf >>= fun () ->
     Lwt.return (`Ok ())
 
 let writev vch bufs =
   if state vch <> Connected
-  then Lwt.return (`Error (`Not_connected (state vch)))
+  then Lwt.return `Eof
   else
     Lwt_list.iter_s (_write_one vch) bufs >>= fun () ->
     Lwt.return (`Ok ())
@@ -417,7 +417,7 @@ let rec _read_one vch event =
 
 let read vch =
   if state vch <> Connected
-  then Lwt.return (`Error(`Not_connected (state vch)))
+  then Lwt.return `Eof
   else begin
     (* signal the remote that we've consumed the last block of data it sent us *)
     set_rd_cons vch Int32.(of_int vch.ack_up_to);

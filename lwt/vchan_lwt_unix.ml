@@ -76,7 +76,7 @@ open Lwt
 let (>>|=) m f = m >>= function
 | `Ok x -> f x
 | `Eof -> Lwt.fail (Failure "End of file")
-| `Error (`Not_connected state) -> Lwt.fail (Failure (Printf.sprintf "Not in a connected state: %s" (Sexplib.Sexp.to_string (M.sexp_of_state state))))
+| `Error (`Unknown msg) -> Lwt.fail (Failure msg)
 
 let reader t =
   (* Last buffer from vchan *)
