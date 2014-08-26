@@ -76,7 +76,7 @@ module type S = sig
     port:Port.t ->
     read_size:int ->
     write_size:int ->
-    persist:bool -> t Lwt.t
+    t Lwt.t
 
   val client :
     evtchn_h:Eventchn.handle ->
@@ -210,7 +210,6 @@ let bit_of_read_write = function Read -> 2 | Write -> 1
 
 type server_params =
   {
-    persist: bool;
     gntshr_h: Gnt.Gntshr.interface;
     shr_shr: Gnt.Gntshr.share;
     read_shr: Gnt.Gntshr.share option;
@@ -368,7 +367,7 @@ let state vch =
     match state_of_live (get_vchan_interface_srv_live vch.shared_page)
     with Ok st -> st | _ -> raise (Invalid_argument "srv_live") in
   match vch.role with
-  | Server { persist } -> if persist then Connected else client_state
+  | Server _ -> client_state
   | Client _ -> server_state
 
 (* Write as much data as we can without blocking *)
@@ -445,7 +444,7 @@ let read vch =
     Lwt.return (`Ok buf)
   end
 
-let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
+let server ~evtchn_h ~domid ~port ~read_size ~write_size =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -542,7 +541,7 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   )
   >>= fun () ->
 
-  let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
+  let role = Server { gntshr_h; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
   let vch = { remote_port; remote_domid; shared_page=v; role;

@@ -129,7 +129,7 @@ module Server = struct
   let connect ~domid ~port ?(stop = return ()) () =
     let evtchn_h = Eventchn.init () in
     M.server ~evtchn_h ~domid ~port
-      ~read_size ~write_size ~persist:true
+      ~read_size ~write_size
     >>= fun t ->
         
     let ic = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.input (reader t) in
