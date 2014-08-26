@@ -33,6 +33,27 @@ val after: Eventchn.t -> event -> event Lwt.t
     is suspended and then resumed, all event channel bindings are invalidated
     and this function will fail with Generation.Invalid *)
 end
+
+module Port = struct
+  type t = string
+
+  let of_string x =
+    let valid_char = function
+      | 'a'..'z'
+      | 'A'..'Z'
+      | '0'..'9'
+      | '_' | '-' -> true
+      | _ -> false in
+    let rec loop n =
+      (n = String.length x)
+      || (valid_char x.[n] && loop (n + 1)) in
+    if loop 0 && (String.length x > 0)
+    then `Ok x
+    else `Error (Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; therefore '%s' is invalid." (String.escaped x))
+
+  let to_string t = t
+end
+
 module type S = sig
   type t
   (** Type of a vchan handler. *)
@@ -52,7 +73,7 @@ module type S = sig
   val server :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    port:string ->
+    port:Port.t ->
     read_size:int ->
     write_size:int ->
     persist:bool -> t Lwt.t
@@ -60,7 +81,7 @@ module type S = sig
   val client :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    port:string -> t Lwt.t
+    port:Port.t -> t Lwt.t
 
   val close : t -> unit
   (** Close a vchan. This deallocates the vchan and attempts to free

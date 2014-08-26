@@ -36,6 +36,16 @@ val after: Eventchn.t -> event -> event Lwt.t
     and this function will fail with Generation.Invalid *)
 end
 
+module Port: sig
+  type t
+  (** uniquely identifies one of many connections between a pair of
+      domains. *)
+
+  val of_string: string -> [ `Ok of t | `Error of string ]
+
+  val to_string: t -> string
+end
+
 module type S = sig
   type t
   (** Type of a vchan handler. *)
@@ -55,7 +65,7 @@ module type S = sig
   val server :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    port:string ->
+    port:Port.t ->
     read_size:int ->
     write_size:int ->
     persist:bool -> t Lwt.t
@@ -75,7 +85,7 @@ module type S = sig
   val client :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    port:string -> t Lwt.t
+    port:Port.t -> t Lwt.t
   (** [client ~evtchn_h ~domid ~port] connects to a vchan server running
       on [~domid] with [~port]. *)
 
