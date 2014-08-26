@@ -2,8 +2,6 @@ open Cmdliner
 open Sexplib.Std
 open Vchan_lwt_unix
 
-type clisrv = Client | Server
-
 let (>>=) = Lwt.bind
 
 let listen =
@@ -12,7 +10,7 @@ let listen =
 
 let domid = Arg.(required & pos 0 (some int) None & info ~docv:"DOMID" ~doc:"Domain id of the remote endpoint." [])
 
-let nodepath = Arg.(value & pos 1 (some string) None & info ~docv:"PATH" ~doc:"Xenstore path used to identify the connection (defaults to /local/domain/<domid>/data/vchan)." [])
+let port = Arg.(required & pos 1 (some string) None & info ~docv:"PORT" ~doc:"Port id (unique to this client+server pair). Must only contain the following characters: [a-zA-Z0-9_-]" [])
 
 let proxy (ic, oc) (stdin, stdout) =
   let rec proxy a b =
@@ -25,15 +23,15 @@ let proxy (ic, oc) (stdin, stdout) =
   let (b: unit Lwt.t) = proxy ic stdout in
   Lwt.join [a; b]
 
-let client domid nodepath =
-  Client.connect ~domid ~path:nodepath ()
+let client domid port =
+  Client.connect ~domid ~port ()
   >>= fun (ic, oc) ->
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
   Client.close (ic, oc)
 
-let server domid nodepath =
-  Server.connect ~domid ~path:nodepath ()
+let server domid port =
+  Server.connect ~domid ~port ()
   >>= fun (ic, oc) ->
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
@@ -41,19 +39,8 @@ let server domid nodepath =
 
 open Lwt
 
-let node listen domid nodepath : unit = Lwt_main.run (
-  let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  ( match nodepath with
-    | Some s -> return s
-    | None ->
-      ( if listen then begin
-          Xs.make () >>= fun c ->
-          Xs.(immediate c (fun h -> read h "domid")) >>= fun domid ->
-          return (int_of_string domid)
-        end else return domid ) >>= fun domid ->
-      return ( Printf.sprintf "/local/domain/%d/data/vchan" domid ) )
-  >>= fun nodepath ->
-  (if listen then server else client) domid nodepath
+let node listen domid port : unit = Lwt_main.run (
+  (if listen then server else client) domid port
 )
 
 let cmd =
@@ -61,8 +48,13 @@ let cmd =
   let man = [
     `S "DESCRIPTION";
     `P "Establish a connection to a remote Xen domain and transfer data over stdin/stdout, in a similar way to 'nc'";
+    `S "EXAMPLES";
+    `P "To listen to an incoming connection from domid 2 on port 'hello':";
+    `P "xencat -l 2 hello";
+    `P "To connect to domid 1 on port 'hello':";
+    `P "xencat 1 hello";
   ] in
-  Term.(pure node $ listen $ domid $ nodepath),
+  Term.(pure node $ listen $ domid $ port),
   Term.info "xencat" ~version:"0.1" ~doc ~man
 
 let () =

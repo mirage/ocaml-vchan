@@ -52,27 +52,15 @@ module type S = sig
   val server :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    xs_path:string ->
+    port:string ->
     read_size:int ->
     write_size:int ->
     persist:bool -> t Lwt.t
-  (** [server ~evtchn_h ~domid ~xs_path ~read_size
-      ~write_size ~persist] initializes a vchan server listening to
-      connections from domain [~domid], using connection information
-      from [~xs_path], with left ring of size [~read_size] and right
-      ring of size [~write_size], which accepts reconnections
-      depending on the value of [~persist].  The [~eventchn] argument
-      is necessary because under Unix, handles do not see events from
-      other handles. *)
 
   val client :
     evtchn_h:Eventchn.handle ->
     domid:int ->
-    xs_path:string -> t Lwt.t
-  (** [client ~evtchn_h ~domid ~xs_path] initializes a vchan
-      client to communicate with domain [~domid] using connection
-      information from [~xs_path]. See the above function for the
-      definition of field [~evtchn_h]. *)
+    port:string -> t Lwt.t
 
   val close : t -> unit
   (** Close a vchan. This deallocates the vchan and attempts to free
@@ -432,7 +420,7 @@ let read vch =
     Lwt.return (`Ok buf)
   end
 
-let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
+let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -511,6 +499,8 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   Xs.make ()
   >>= fun c ->
   Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+  Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
+  let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath domid port in
   let acl =
     Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
   let info = [
@@ -532,11 +522,14 @@ let server ~evtchn_h ~domid ~xs_path ~read_size ~write_size ~persist =
   let ack_up_to = 0 in
   Lwt.return { shared_page=v; role; read=read_buf; write=write_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
 
-let client ~evtchn_h ~domid ~xs_path =
+let client ~evtchn_h ~domid ~port =
   let get_gntref_and_evtchn () =
     Xs.make ()
-    >>= fun xs_cli ->
-    Xs.(wait xs_cli
+    >>= fun c ->
+    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+    Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
+    let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
+    Xs.(wait c
       (fun xsh ->
         try_lwt
           read xsh (xs_path ^ "/ring-ref") >>= fun rref ->

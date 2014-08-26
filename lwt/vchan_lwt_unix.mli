@@ -43,7 +43,7 @@ module Client : sig
   open Lwt_io
 
   val connect :
-    domid:int -> path:string
+    domid:int -> port:string
     -> unit
     -> (input channel * output channel) Lwt.t
 
@@ -54,7 +54,7 @@ module Server : sig
   open Lwt_io
 
   val connect :
-    domid: int -> path: string
+    domid: int -> port: string
     -> ?stop:(unit Lwt.t)
     -> unit
     -> (input channel * output channel) Lwt.t
