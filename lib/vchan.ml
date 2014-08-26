@@ -89,10 +89,10 @@ module type S = sig
       still read any data pending prior to the close. *)
 
   include V1_LWT.FLOW
-    with type flow := t
+    with type flow = t
     and  type error := error
-    and  type 'a io := 'a Lwt.t
-    and  type buffer := Cstruct.t
+    and  type 'a io = 'a Lwt.t
+    and  type buffer = Cstruct.t
 
   val state : t -> state
   (** [state vch] is the state of a vchan connection. *)
@@ -256,7 +256,9 @@ type error = [
   `Not_connected of state
 ]
 
-type flow
+type flow = t
+type 'a io = 'a Lwt.t
+type buffer = Cstruct.t
 
 let state_of_live = function
   | 0 -> Ok Exited

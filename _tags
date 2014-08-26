@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c21fb258fbb2a2027ccacc025a2bf955)
+# DO NOT EDIT (digest: 1c08855225173a3ac8d940136f9b5e6e)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -56,6 +56,47 @@
 <lwt/*.ml{,i}>: pkg_xen-gnt
 <lwt/*.ml{,i}>: pkg_sexplib
 <lwt/*.ml{,i}>: pkg_sexplib.syntax
+# Executable test
+<lib_test/test.{native,byte}>: use_vchan_lwt_unix
+<lib_test/test.{native,byte}>: use_vchan
+<lib_test/test.{native,byte}>: pkg_cmdliner
+<lib_test/test.{native,byte}>: pkg_lwt
+<lib_test/test.{native,byte}>: pkg_xen-evtchn.unix
+<lib_test/test.{native,byte}>: pkg_xen-evtchn.unix.activations
+<lib_test/test.{native,byte}>: pkg_io-page.unix
+<lib_test/test.{native,byte}>: pkg_xen-gnt.unix
+<lib_test/test.{native,byte}>: pkg_xenstore
+<lib_test/test.{native,byte}>: pkg_xenstore.client
+<lib_test/test.{native,byte}>: pkg_xenstore_transport
+<lib_test/test.{native,byte}>: pkg_xenstore_transport.lwt
+<lib_test/test.{native,byte}>: pkg_mirage-types.lwt
+<lib_test/test.{native,byte}>: pkg_cstruct
+<lib_test/test.{native,byte}>: pkg_cstruct.syntax
+<lib_test/test.{native,byte}>: pkg_mirage-types
+<lib_test/test.{native,byte}>: pkg_xen-evtchn
+<lib_test/test.{native,byte}>: pkg_xen-gnt
+<lib_test/test.{native,byte}>: pkg_sexplib
+<lib_test/test.{native,byte}>: pkg_sexplib.syntax
+<lib_test/*.ml{,i}>: use_vchan_lwt_unix
+<lib_test/*.ml{,i}>: use_vchan
+<lib_test/*.ml{,i}>: pkg_cmdliner
+<lib_test/*.ml{,i}>: pkg_lwt
+<lib_test/*.ml{,i}>: pkg_xen-evtchn.unix
+<lib_test/*.ml{,i}>: pkg_xen-evtchn.unix.activations
+<lib_test/*.ml{,i}>: pkg_io-page.unix
+<lib_test/*.ml{,i}>: pkg_xen-gnt.unix
+<lib_test/*.ml{,i}>: pkg_xenstore
+<lib_test/*.ml{,i}>: pkg_xenstore.client
+<lib_test/*.ml{,i}>: pkg_xenstore_transport
+<lib_test/*.ml{,i}>: pkg_xenstore_transport.lwt
+<lib_test/*.ml{,i}>: pkg_mirage-types.lwt
+<lib_test/*.ml{,i}>: pkg_cstruct
+<lib_test/*.ml{,i}>: pkg_cstruct.syntax
+<lib_test/*.ml{,i}>: pkg_mirage-types
+<lib_test/*.ml{,i}>: pkg_xen-evtchn
+<lib_test/*.ml{,i}>: pkg_xen-gnt
+<lib_test/*.ml{,i}>: pkg_sexplib
+<lib_test/*.ml{,i}>: pkg_sexplib.syntax
 # Executable xencat
 <cli/xencat.{native,byte}>: use_vchan_lwt_unix
 <cli/xencat.{native,byte}>: use_vchan
