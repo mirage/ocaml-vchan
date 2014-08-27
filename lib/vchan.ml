@@ -401,7 +401,7 @@ let rec _read_one vch event =
   if avail = 0 && state = Connected
   then A.after vch.evtchn event >>= fun event -> _read_one vch event
   else
-    if state <> Connected
+    if avail = 0 && state <> Connected
     then Lwt.return `Eof
     else
       let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
