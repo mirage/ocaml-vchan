@@ -14,6 +14,9 @@ let port =
   let port = Vchan.Port.of_string, fun f p -> Format.fprintf f "%s" (Vchan.Port.to_string p) in
   Arg.(required & pos 1 (some port) None & info ~docv:"PORT" ~doc:"Port id (unique to this client+server pair). Must only contain the following characters: [a-zA-Z0-9_-]" [])
 
+let buffer_size = Arg.(value & opt int 65536 & info ~docv:"BUFFERSIZE" ~doc:"Size in bytes of a buffer (a total of 4 will be created)" [ "buffer-size" ])
+
+
 let sigint_t, sigint_u = Lwt.task ()
 
 let proxy (ic, oc) (stdin, stdout) =
@@ -30,8 +33,8 @@ let proxy (ic, oc) (stdin, stdout) =
     (function End_of_file -> Lwt.return ()
      | e -> Lwt.fail e)
 
-let client domid port =
-  open_client ~domid ~port ()
+let client domid port buffer_size =
+  open_client ~domid ~port ~buffer_size ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
@@ -43,8 +46,8 @@ let client domid port =
   Printf.fprintf stderr "Disconnected.\n%!";
   Lwt.return ()
 
-let server domid port =
-  open_server ~domid ~port ()
+let server domid port buffer_size =
+  open_server ~domid ~port ~buffer_size ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
@@ -59,8 +62,8 @@ let server domid port =
 
 open Lwt
 
-let node listen domid port : unit = Lwt_main.run (
-  (if listen then server else client) domid port
+let node listen domid port buffer_size : unit = Lwt_main.run (
+  (if listen then server else client) domid port buffer_size
 )
 
 let cmd =
@@ -74,7 +77,7 @@ let cmd =
     `P "To connect to domid 1 on port 'hello':";
     `P "xencat 1 hello";
   ] in
-  Term.(pure node $ listen $ domid $ port),
+  Term.(pure node $ listen $ domid $ port $ buffer_size),
   Term.info "xencat" ~version:"0.1" ~doc ~man
 
 let () =

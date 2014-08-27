@@ -41,13 +41,17 @@ module IO : Cohttp_IO_S
 
 val open_client :
     domid:int -> port:Vchan.Port.t
+    -> ?buffer_size:int
     -> unit
     -> (Lwt_io.input_channel * Lwt_io.output_channel) Lwt.t
-(** [open_client domid port ()] creates a client connection to the server
-    running on [domid] with port [port]. This call will block until
-    communication is established and it is safe to pass traffic. The underlying
-    vchan connection will be disconnected when the input_channel is
-    closed. *)
+(** [open_client domid port ?buffer_size ()] creates a client
+    connection to the server running on [domid] with port [port].
+    This call will block until communication is established and it
+    is safe to pass traffic. The underlying vchan connection will
+    be disconnected when the input_channel is closed.
+    If a ?buffer_size is given then 4 buffers of this size will be
+    created: 2 for reading (vchan + Lwt_io) and 2 for writing.
+ *)
 
 val open_server :
     domid: int -> port:Vchan.Port.t
@@ -56,6 +60,6 @@ val open_server :
     -> (Lwt_io.input_channel * Lwt_io.output_channel) Lwt.t
 (** [open_server domid port ?buffer_size ()] creates a server
     connection to client [domid] with port [port]. If a ?buffer_size
-    argument is given then 2 buffers of this size will be created:
-    one for reading and one for writing. *)
+    argument is given then 4 buffers of this size will be created:
+    2 for reading (vchan + Lwt_io) and 2 for writing. *)
 
