@@ -5,7 +5,7 @@ memory.
 Linux configuration
 -------------------
 
-Make sure your systems ae properly configured. You may need to:
+Make sure your systems are properly configured. You may need to:
 ```
 sudo modprobe xen-evtchn
 sudo modprobe xen-gntdev
