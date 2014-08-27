@@ -73,11 +73,6 @@ end
 
 open Lwt
 
-let (>>|=) m f = m >>= function
-| `Ok x -> f x
-| `Eof -> Lwt.fail (Failure "End of file")
-| `Error (`Not_connected state) -> Lwt.fail (Failure (Printf.sprintf "Not in a connected state: %s" (Sexplib.Sexp.to_string (M.sexp_of_state state))))
-
 let reader t =
   (* Last buffer from vchan *)
   let frag = ref (Cstruct.create 0) in
@@ -87,9 +82,12 @@ let reader t =
     else
       let available = Cstruct.len !frag in
       if available = 0 then begin
-        M.read t >>|= fun b ->
-        frag := b;
-        aux buf ofs len
+        M.read t >>= function
+        | `Ok b ->
+          frag := b;
+          aux buf ofs len
+        | `Eof -> return 0
+        | `Error (`Unknown msg) -> Lwt.fail (Failure msg)
       end else begin
         let n = min available len in
         Cstruct.blit !frag 0 (Cstruct.of_bigarray buf) ofs n;
@@ -100,8 +98,13 @@ let reader t =
 
 let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   let b = Cstruct.sub (Cstruct.of_bigarray buf) ofs len in
-  M.write t b >>|= fun () ->
-  return len
+  M.write t b >>= function
+  | `Ok () ->
+    return len
+  | `Eof ->
+    return 0
+  | `Error (`Unknown msg) ->
+    Lwt.fail (Failure msg)
 
 module Client = struct
   open Lwt_io
@@ -111,13 +114,11 @@ module Client = struct
     M.client ~evtchn_h ~domid ~port
     >>= fun t ->
 
-    let ic = Lwt_io.make ~mode:Lwt_io.input (reader t) in
+    let close () = M.close t in
+
+    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
     let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
     return (ic, oc)
-
-  let close (ic, oc) =
-    Lwt_io.close ic >>= fun () ->
-    Lwt_io.close oc
 end
 
 module Server = struct
@@ -126,16 +127,16 @@ module Server = struct
   let read_size = 65536
   let write_size = 65536
 
-  let connect ~domid ~port ?(stop = return ()) () =
+  let connect ~domid ~port () =
     let evtchn_h = Eventchn.init () in
     M.server ~evtchn_h ~domid ~port
       ~read_size ~write_size
     >>= fun t ->
-        
-    let ic = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.input (reader t) in
-    let oc = Lwt_io.make ~close:(fun () -> stop) ~mode:Lwt_io.output (writer t) in
-    return (ic, oc)
 
-  let close = Client.close
+    let close () = M.close t in
+
+    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
+    let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+    return (ic, oc)
 end
 

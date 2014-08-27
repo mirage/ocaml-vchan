@@ -31,7 +31,12 @@ let client domid port =
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
-  Client.close (ic, oc)
+  Lwt_io.close ic
+  >>= fun () ->
+  Lwt_io.close oc
+  >>= fun () ->
+  Printf.fprintf stderr "Disconnected.\n%!";
+  Lwt.return ()
 
 let server domid port =
   Server.connect ~domid ~port ()
@@ -39,7 +44,13 @@ let server domid port =
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
-  Server.close (ic, oc)
+  Lwt_io.close ic
+  >>= fun () ->
+  Lwt_io.close oc
+  >>= fun () ->
+  Printf.fprintf stderr "Disconnected.\n%!";
+  Lwt.return ()
+
 
 open Lwt
 

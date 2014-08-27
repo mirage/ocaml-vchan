@@ -59,7 +59,7 @@ module type S = sig
   with sexp
 
   type error = [
-    `Not_connected of state (** can't read or write before we connect *)
+    `Unknown of string
   ]
 
   val server :
