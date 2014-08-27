@@ -106,37 +106,25 @@ let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   | `Error (`Unknown msg) ->
     Lwt.fail (Failure msg)
 
-module Client = struct
-  open Lwt_io
+let open_client ~domid ~port () =
+  let evtchn_h = Eventchn.init () in
+  M.client ~evtchn_h ~domid ~port
+  >>= fun t ->
 
-  let connect ~domid ~port () =
-    let evtchn_h = Eventchn.init () in
-    M.client ~evtchn_h ~domid ~port
-    >>= fun t ->
+  let close () = M.close t in
 
-    let close () = M.close t in
+  let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
+  let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+  return (ic, oc)
 
-    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
-    let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
-    return (ic, oc)
-end
+let open_server ~domid ~port ?(buffer_size = 65536) () =
+  let evtchn_h = Eventchn.init () in
+  M.server ~evtchn_h ~domid ~port
+    ~read_size:buffer_size ~write_size:buffer_size
+  >>= fun t ->
 
-module Server = struct
-  open Lwt_io
+  let close () = M.close t in
 
-  let read_size = 65536
-  let write_size = 65536
-
-  let connect ~domid ~port () =
-    let evtchn_h = Eventchn.init () in
-    M.server ~evtchn_h ~domid ~port
-      ~read_size ~write_size
-    >>= fun t ->
-
-    let close () = M.close t in
-
-    let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
-    let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
-    return (ic, oc)
-end
-
+  let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
+  let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+  return (ic, oc)
