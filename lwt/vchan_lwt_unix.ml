@@ -106,15 +106,15 @@ let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   | `Error (`Unknown msg) ->
     Lwt.fail (Failure msg)
 
-let open_client ~domid ~port () =
+let open_client ~domid ~port ?(buffer_size = 65536) () =
   let evtchn_h = Eventchn.init () in
   M.client ~evtchn_h ~domid ~port
   >>= fun t ->
 
   let close () = M.close t in
 
-  let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
-  let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+  let ic = Lwt_io.make ~buffer_size ~mode:Lwt_io.input ~close (reader t) in
+  let oc = Lwt_io.make ~buffer_size ~mode:Lwt_io.output (writer t) in
   return (ic, oc)
 
 let open_server ~domid ~port ?(buffer_size = 65536) () =
@@ -125,6 +125,6 @@ let open_server ~domid ~port ?(buffer_size = 65536) () =
 
   let close () = M.close t in
 
-  let ic = Lwt_io.make ~mode:Lwt_io.input ~close (reader t) in
-  let oc = Lwt_io.make ~mode:Lwt_io.output (writer t) in
+  let ic = Lwt_io.make ~buffer_size ~mode:Lwt_io.input ~close (reader t) in
+  let oc = Lwt_io.make ~buffer_size ~mode:Lwt_io.output (writer t) in
   return (ic, oc)
