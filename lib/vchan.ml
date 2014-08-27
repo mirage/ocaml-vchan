@@ -653,18 +653,19 @@ let client ~evtchn_h ~domid ~port =
   Lwt.return { shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
 
 let close vch =
-  (* C impl. notify before shutting down the event channel
-     interface. *)
-  Eventchn.notify vch.evtchn_h vch.evtchn;
-  i_int (Eventchn.close vch.evtchn_h);
   match vch.role with
   | Client { gnttab_h; shr_map; read_map; write_map } ->
+    set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
+    Eventchn.notify vch.evtchn_h vch.evtchn;
+
     Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) read_map;
     Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) write_map;
     Gnt.Gnttab.unmap_exn gnttab_h shr_map;
     Gnt.Gnttab.interface_close gnttab_h
-
   | Server { gntshr_h; shr_shr; read_shr; write_shr } ->
+    set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
+    Eventchn.notify vch.evtchn_h vch.evtchn;
+
     Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) read_shr;
     Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
     Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
