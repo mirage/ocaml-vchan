@@ -370,64 +370,64 @@ let _write_noblock vch buf =
   send_notify vch Write
 
 (* Write a whole buffer in a blocking fashion *)
-let _write_one vch buf =
+let write vch buf =
   let len = Cstruct.len buf in
   let rec inner pos event =
-    let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
-    if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
-    let pos = pos + avail in
-    if pos = len
-    then Lwt.return ()
-    else A.after vch.evtchn event >>= fun event -> inner pos event
+    if state vch <> Connected
+    then Lwt.return `Eof
+    else
+      let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
+      if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
+      let pos = pos + avail in
+      if pos = len
+      then Lwt.return (`Ok ())
+      else A.after vch.evtchn event >>= fun event -> inner pos event
   in inner 0 A.program_start
 
-let write vch buf =
-  if state vch <> Connected
-  then Lwt.return `Eof
-  else
-    _write_one vch buf >>= fun () ->
-    Lwt.return (`Ok ())
-
-let writev vch bufs =
-  if state vch <> Connected
-  then Lwt.return `Eof
-  else
-    Lwt_list.iter_s (_write_one vch) bufs >>= fun () ->
-    Lwt.return (`Ok ())
+let rec writev vch = function
+| [] -> Lwt.return (`Ok ())
+| b :: bs ->
+  write vch b >>= function
+  | `Ok () -> writev vch bs
+  | `Eof -> Lwt.return `Eof
+  | `Error m -> Lwt.return (`Error m)
 
 (* Read a chunk in a blocking fashion. Note this returns a
    reference to the data in the ring. *)
 let rec _read_one vch event =
-  (* wait until at least 1 byte is available *)
+  (* wait until at least 1 byte is available or the connection has closed *)
   let avail = fast_get_data_ready vch 1 in
-  if avail = 0
+  let state = state vch in
+  if avail = 0 && state = Connected
   then A.after vch.evtchn event >>= fun event -> _read_one vch event
   else
-    let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
-    let bytes_before_wraparound = rd_ring_size vch - real_idx in
-    let buf =
-      if bytes_before_wraparound = 0 then begin
-        (* all bytes are in a contiguous block starting at 0 *)
-        Cstruct.sub vch.read 0 avail
-      end else begin
-        (* we'll only consume the bytes before wraparound on this iteration *)
-        Cstruct.sub vch.read real_idx (min avail bytes_before_wraparound)
-      end in
-    Lwt.return buf
+    if state <> Connected
+    then Lwt.return `Eof
+    else
+      let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
+      let bytes_before_wraparound = rd_ring_size vch - real_idx in
+      let buf =
+        if bytes_before_wraparound = 0 then begin
+          (* all bytes are in a contiguous block starting at 0 *)
+          Cstruct.sub vch.read 0 avail
+        end else begin
+          (* we'll only consume the bytes before wraparound on this iteration *)
+          Cstruct.sub vch.read real_idx (min avail bytes_before_wraparound)
+        end in
+      Lwt.return (`Ok buf)
 
 let read vch =
-  if state vch <> Connected
-  then Lwt.return `Eof
-  else begin
-    (* signal the remote that we've consumed the last block of data it sent us *)
-    set_rd_cons vch Int32.(of_int vch.ack_up_to);
-    send_notify vch Read;
-    (* get the fresh data *)
-    _read_one vch A.program_start >>= fun buf ->
+  (* signal the remote that we've consumed the last block of data it sent us *)
+  set_rd_cons vch Int32.(of_int vch.ack_up_to);
+  send_notify vch Read;
+  (* get the fresh data *)
+  _read_one vch A.program_start >>= function
+  | `Ok buf ->
     (* we'll signal the remote we've consumed this data on the next iteration *)
     vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
     Lwt.return (`Ok buf)
-  end
+  | `Eof -> Lwt.return `Eof
+  | `Error m -> Lwt.return (`Error m)
 
 let server ~evtchn_h ~domid ~port ~read_size ~write_size =
   (* The vchan convention is that the 'server' allocates and
