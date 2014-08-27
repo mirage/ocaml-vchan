@@ -19,15 +19,19 @@ let buffer_size = Arg.(value & opt int 65536 & info ~docv:"BUFFERSIZE" ~doc:"Siz
 
 let sigint_t, sigint_u = Lwt.task ()
 
-let proxy (ic, oc) (stdin, stdout) =
-  let rec proxy a b =
-    Lwt_io.read_char a
-    >>= fun c ->
-    Lwt_io.write_char b c
-    >>= fun () ->
-    proxy a b in
-  let (a: unit Lwt.t) = proxy stdin oc in
-  let (b: unit Lwt.t) = proxy ic stdout in
+let proxy buffer_size (ic, oc) (stdin, stdout) =
+  let a_buffer = String.create buffer_size in
+  let b_buffer = String.create buffer_size in
+  let rec proxy buffer a b =
+    Lwt_io.read_into a buffer 0 buffer_size
+    >>= function
+    | 0 -> Lwt.fail End_of_file
+    | n ->
+      Lwt_io.write_from_exactly b buffer 0 n
+      >>= fun () ->
+      proxy buffer a b in
+  let (a: unit Lwt.t) = proxy a_buffer stdin oc in
+  let (b: unit Lwt.t) = proxy b_buffer ic stdout in
   Lwt.catch
     (fun () -> Lwt.pick [a; b; sigint_t])
     (function End_of_file -> Lwt.return ()
@@ -37,7 +41,7 @@ let client domid port buffer_size =
   open_client ~domid ~port ~buffer_size ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
-  proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
+  proxy buffer_size (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
   Lwt_io.close ic
   >>= fun () ->
@@ -50,7 +54,7 @@ let server domid port buffer_size =
   open_server ~domid ~port ~buffer_size ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
-  proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
+  proxy buffer_size (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
   >>= fun () ->
   Lwt_io.close ic
   >>= fun () ->
