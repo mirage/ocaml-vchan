@@ -31,7 +31,7 @@ let proxy (ic, oc) (stdin, stdout) =
      | e -> Lwt.fail e)
 
 let client domid port =
-  Client.connect ~domid ~port ()
+  open_client ~domid ~port ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)
@@ -44,7 +44,7 @@ let client domid port =
   Lwt.return ()
 
 let server domid port =
-  Server.connect ~domid ~port ()
+  open_server ~domid ~port ()
   >>= fun (ic, oc) ->
   Printf.fprintf stderr "Connected.\n%!";
   proxy (ic, oc) (Lwt_io.stdin, Lwt_io.stdout)

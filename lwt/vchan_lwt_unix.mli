@@ -39,21 +39,23 @@ module IO : Cohttp_IO_S
  and type ic = Lwt_io.input_channel
  and type oc = Lwt_io.output_channel
 
-module Client : sig
-  open Lwt_io
-
-  val connect :
+val open_client :
     domid:int -> port:Vchan.Port.t
     -> unit
-    -> (input channel * output channel) Lwt.t
-end
+    -> (Lwt_io.input_channel * Lwt_io.output_channel) Lwt.t
+(** [open_client domid port ()] creates a client connection to the server
+    running on [domid] with port [port]. This call will block until
+    communication is established and it is safe to pass traffic. The underlying
+    vchan connection will be disconnected when the input_channel is
+    closed. *)
 
-module Server : sig
-  open Lwt_io
-
-  val connect :
+val open_server :
     domid: int -> port:Vchan.Port.t
+    -> ?buffer_size:int
     -> unit
-    -> (input channel * output channel) Lwt.t
-end
+    -> (Lwt_io.input_channel * Lwt_io.output_channel) Lwt.t
+(** [open_server domid port ?buffer_size ()] creates a server
+    connection to client [domid] with port [port]. If a ?buffer_size
+    argument is given then 2 buffers of this size will be created:
+    one for reading and one for writing. *)
 
