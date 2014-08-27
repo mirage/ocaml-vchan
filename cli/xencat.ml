@@ -23,7 +23,10 @@ let proxy (ic, oc) (stdin, stdout) =
     proxy a b in
   let (a: unit Lwt.t) = proxy stdin oc in
   let (b: unit Lwt.t) = proxy ic stdout in
-  Lwt.join [a; b]
+  Lwt.catch
+    (fun () -> Lwt.pick [a; b])
+    (function End_of_file -> Lwt.return ()
+     | e -> Lwt.fail e)
 
 let client domid port =
   Client.connect ~domid ~port ()
