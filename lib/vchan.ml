@@ -76,7 +76,7 @@ module type S = sig
     port:Port.t ->
     read_size:int ->
     write_size:int ->
-    persist:bool -> t Lwt.t
+    t Lwt.t
 
   val client :
     evtchn_h:Eventchn.handle ->
@@ -210,7 +210,6 @@ let bit_of_read_write = function Read -> 2 | Write -> 1
 
 type server_params =
   {
-    persist: bool;
     gntshr_h: Gnt.Gntshr.interface;
     shr_shr: Gnt.Gntshr.share;
     read_shr: Gnt.Gntshr.share option;
@@ -243,7 +242,6 @@ type t = {
   write: Cstruct.t; (* the ring where you write data to *)
   evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
   evtchn: Eventchn.t; (* Event channel to notify the other end *)
-  mutable waiter: unit Lwt.t option;
   mutable token: A.event;
   mutable ack_up_to: int; (* FLOW reader has seen this much data *)
 }
@@ -346,20 +344,6 @@ let buffer_space vch =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
-let wait vch =
-  match vch.waiter with
-  | None ->
-    let waiter =
-      A.after vch.evtchn vch.token >>= fun token ->
-      vch.token <- token;
-      vch.waiter <- None;
-      Lwt.return ()
-    in
-    vch.waiter <- Some waiter;
-    waiter
-  | Some waiter ->
-    waiter
-
 let state vch =
   let client_state =
     match state_of_live (get_vchan_interface_cli_live vch.shared_page)
@@ -368,7 +352,7 @@ let state vch =
     match state_of_live (get_vchan_interface_srv_live vch.shared_page)
     with Ok st -> st | _ -> raise (Invalid_argument "srv_live") in
   match vch.role with
-  | Server { persist } -> if persist then Connected else client_state
+  | Server _ -> client_state
   | Client _ -> server_state
 
 (* Write as much data as we can without blocking *)
@@ -388,14 +372,14 @@ let _write_noblock vch buf =
 (* Write a whole buffer in a blocking fashion *)
 let _write_one vch buf =
   let len = Cstruct.len buf in
-  let rec inner pos =
+  let rec inner pos event =
     let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
     if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
     let pos = pos + avail in
     if pos = len
     then Lwt.return ()
-    else wait vch >>= fun () -> inner pos
-  in inner 0
+    else A.after vch.evtchn event >>= fun event -> inner pos event
+  in inner 0 A.program_start
 
 let write vch buf =
   if state vch <> Connected
@@ -413,11 +397,11 @@ let writev vch bufs =
 
 (* Read a chunk in a blocking fashion. Note this returns a
    reference to the data in the ring. *)
-let rec _read_one vch =
+let rec _read_one vch event =
   (* wait until at least 1 byte is available *)
   let avail = fast_get_data_ready vch 1 in
   if avail = 0
-  then wait vch >>= fun () -> _read_one vch
+  then A.after vch.evtchn event >>= fun event -> _read_one vch event
   else
     let real_idx = Int32.(logand (rd_cons vch) (of_int (rd_ring_size vch) - 1l) |> to_int) in
     let bytes_before_wraparound = rd_ring_size vch - real_idx in
@@ -439,13 +423,13 @@ let read vch =
     set_rd_cons vch Int32.(of_int vch.ack_up_to);
     send_notify vch Read;
     (* get the fresh data *)
-    _read_one vch >>= fun buf ->
+    _read_one vch A.program_start >>= fun buf ->
     (* we'll signal the remote we've consumed this data on the next iteration *)
     vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
     Lwt.return (`Ok buf)
   end
 
-let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
+let server ~evtchn_h ~domid ~port ~read_size ~write_size =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -542,12 +526,12 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist =
   )
   >>= fun () ->
 
-  let role = Server { gntshr_h; persist; shr_shr; read_shr; write_shr } in
+  let role = Server { gntshr_h; shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
   let vch = { remote_port; remote_domid; shared_page=v; role;
               read=read_buf; write=write_buf; evtchn_h; evtchn;
-              token=A.program_start; waiter=None; ack_up_to } in
+              token=A.program_start; ack_up_to } in
   (* Wait for the connection *)
   let rec loop event =
     if state vch = WaitingForConnection then begin
@@ -591,7 +575,7 @@ let client ~evtchn_h ~domid ~port =
       (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
 
   (* Set initial values in vchan_intf *)
-  set_vchan_interface_cli_live vchan_intf_cstruct 1;
+  set_vchan_interface_cli_live vchan_intf_cstruct (live_of_state Connected);
   set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
 
   (* Bind the event channel *)
@@ -653,7 +637,7 @@ let client ~evtchn_h ~domid ~port =
   let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
-  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; waiter=None; ack_up_to }
+  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; ack_up_to }
 
 let close vch =
   match vch.role with

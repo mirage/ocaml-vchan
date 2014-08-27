@@ -68,16 +68,13 @@ module type S = sig
     port:Port.t ->
     read_size:int ->
     write_size:int ->
-    persist:bool -> t Lwt.t
-  (** [server ~evtchn_h ~domid ~port ~read_size ~write_size ~persist]
+    t Lwt.t
+  (** [server ~evtchn_h ~domid ~port ~read_size ~write_size]
       initializes a vchan server listening to a connection from [~domid]
       to [~port] (which must be a string containing only characters
       [a-zA-Z0-9_-]). A shared buffer of length [~read_size] will be
       used for reading on the server side and a shared buffer of length
       [~write_size] will be used for writing on the server side.
-
-      If [~persist] is true then the server will remain after a client
-      disconnects, allowing reconnection.
 
       The [~eventchn] argument is necessary because under Unix, handles
       do not see events from other handles. *)
