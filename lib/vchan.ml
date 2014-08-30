@@ -71,7 +71,6 @@ module type S = sig
   ]
 
   val server :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t ->
     read_size:int ->
@@ -79,7 +78,6 @@ module type S = sig
     t Lwt.t
 
   val client :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t -> t Lwt.t
 
@@ -429,7 +427,9 @@ let read vch =
   | `Eof -> Lwt.return `Eof
   | `Error m -> Lwt.return (`Error m)
 
-let server ~evtchn_h ~domid ~port ~read_size ~write_size =
+let server ~domid ~port ~read_size ~write_size =
+  let evtchn_h = Eventchn.init () in
+
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -543,7 +543,9 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size =
 
   return vch
 
-let client ~evtchn_h ~domid ~port =
+let client ~domid ~port =
+  let evtchn_h = Eventchn.init () in
+
   let get_gntref_and_evtchn () =
     Xs.make ()
     >>= fun c ->

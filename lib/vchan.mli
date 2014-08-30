@@ -63,13 +63,12 @@ module type S = sig
   ]
 
   val server :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t ->
     read_size:int ->
     write_size:int ->
     t Lwt.t
-  (** [server ~evtchn_h ~domid ~port ~read_size ~write_size]
+  (** [server ~domid ~port ~read_size ~write_size]
       initializes a vchan server listening to a connection from [~domid]
       to [~port] (which must be a string containing only characters
       [a-zA-Z0-9_-]). A shared buffer of length [~read_size] will be
@@ -80,10 +79,9 @@ module type S = sig
       do not see events from other handles. *)
 
   val client :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t -> t Lwt.t
-  (** [client ~evtchn_h ~domid ~port] connects to a vchan server running
+  (** [client ~domid ~port] connects to a vchan server running
       on [~domid] with [~port]. *)
 
   val close : t -> unit Lwt.t

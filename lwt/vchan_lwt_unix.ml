@@ -107,8 +107,7 @@ let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
     Lwt.fail (Failure msg)
 
 let open_client ~domid ~port ?(buffer_size = 65536) () =
-  let evtchn_h = Eventchn.init () in
-  M.client ~evtchn_h ~domid ~port
+  M.client ~domid ~port
   >>= fun t ->
 
   let close () = M.close t in
@@ -118,8 +117,7 @@ let open_client ~domid ~port ?(buffer_size = 65536) () =
   return (ic, oc)
 
 let open_server ~domid ~port ?(buffer_size = 65536) () =
-  let evtchn_h = Eventchn.init () in
-  M.server ~evtchn_h ~domid ~port
+  M.server ~domid ~port
     ~read_size:buffer_size ~write_size:buffer_size
   >>= fun t ->
 
