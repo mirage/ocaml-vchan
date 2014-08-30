@@ -546,24 +546,22 @@ let server ~domid ~port ~read_size ~write_size =
 let client ~domid ~port =
   let evtchn_h = Eventchn.init () in
 
-  let get_gntref_and_evtchn () =
-    Xs.make ()
-    >>= fun c ->
-    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-    Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
-    let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
-    Xs.(wait c
-      (fun xsh ->
-        try_lwt
-          read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
-          read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
-          return (rref, evtchn)
-        with _ -> fail Xs_protocol.Eagain))
-    >>= fun (gntref, evtchn) ->
-    return (int_of_string gntref, int_of_string evtchn)
-  in
-  get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
-
+  Xs.make ()
+  >>= fun c ->
+  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+  Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
+  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
+  Xs.(wait c
+    (fun xsh ->
+      try_lwt
+        read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
+        read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
+        return (rref, evtchn)
+      with _ -> fail Xs_protocol.Eagain))
+  >>= fun (gntref, evtchn) ->
+  let gntref = int_of_string gntref in
+  let evtchn = int_of_string evtchn in
+ 
   (* Map the vchan interface page *)
   let gnttab_h = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
