@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (c) 2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,10 +14,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
+type t = string
 
-let () =
-  let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  let module M = Vchan.Connection.Make(Unix_activations)(Xs) in
-  let module Test = Check_flow_compatible(M) in
-  ()
+let of_string x =
+  let valid_char = function
+    | 'a'..'z'
+    | 'A'..'Z'
+    | '0'..'9'
+    | '_' | '-' -> true
+    | _ -> false in
+  let rec loop n =
+    (n = String.length x)
+    || (valid_char x.[n] && loop (n + 1)) in
+  if loop 0 && (String.length x > 0)
+  then `Ok x
+  else `Error (Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; therefore '%s' is invalid." (String.escaped x))
+
+let to_string t = t

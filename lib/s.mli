@@ -15,8 +15,6 @@
  *)
 
 
-(** Client and server interface for Xen's vchan protocol. *)
-
 module type ACTIVATIONS = sig
 
 (** Event channels handlers. *)
@@ -34,16 +32,6 @@ val after: Eventchn.t -> event -> event Lwt.t
     next call to [after] will immediately unblock. If the system
     is suspended and then resumed, all event channel bindings are invalidated
     and this function will fail with Generation.Invalid *)
-end
-
-module Port: sig
-  type t
-  (** uniquely identifies one of many connections between a pair of
-      domains. *)
-
-  val of_string: string -> [ `Ok of t | `Error of string ]
-
-  val to_string: t -> string
 end
 
 module type S = sig
@@ -68,27 +56,16 @@ module type S = sig
     read_size:int ->
     write_size:int ->
     t Lwt.t
-  (** [server ~domid ~port ~read_size ~write_size]
-      initializes a vchan server listening to a connection from [~domid]
-      to [~port] (which must be a string containing only characters
-      [a-zA-Z0-9_-]). A shared buffer of length [~read_size] will be
-      used for reading on the server side and a shared buffer of length
-      [~write_size] will be used for writing on the server side.
-
-      The [~eventchn] argument is necessary because under Unix, handles
-      do not see events from other handles. *)
 
   val client :
     domid:int ->
     port:Port.t -> t Lwt.t
-  (** [client ~domid ~port] connects to a vchan server running
-      on [~domid] with [~port]. *)
 
   val close : t -> unit Lwt.t
   (** Close a vchan. This deallocates the vchan and attempts to free
       its resources. The other side is notified of the close, but can
       still read any data pending prior to the close. *)
-  
+
   include V1_LWT.FLOW
     with type flow = t
     and  type error := error
@@ -106,5 +83,3 @@ module type S = sig
   (** [buffer_space vch] is the amount of data it is currently possible
       to send on [vch]. *)
 end
-
-module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) : S

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (c) 2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,10 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
+type t
 
-let () =
-  let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  let module M = Vchan.Connection.Make(Unix_activations)(Xs) in
-  let module Test = Check_flow_compatible(M) in
-  ()
+val of_string: string -> [ `Ok of t | `Error of string ]
+
+val to_string: t -> string
