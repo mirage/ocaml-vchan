@@ -15,7 +15,7 @@
  *)
 
 module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client)
-module M = Vchan.Make(Unix_activations)(Xs)
+module M = Vchan.Connection.Make(Unix_activations)(Xs)
 
 (* Delete when I've got a working Cohttp *)
 module type Cohttp_IO_S = sig

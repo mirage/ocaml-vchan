@@ -13,97 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
-
-module type ACTIVATIONS = sig
-
-(** Event channels handlers. *)
-
-type event
-(** identifies the an event notification received from xen *)
-
-val program_start: event
-(** represents an event which 'fired' when the program started *)
-
-val after: Eventchn.t -> event -> event Lwt.t
-(** [next channel event] blocks until the system receives an event
-    newer than [event] on channel [channel]. If an event is received
-    while we aren't looking then this will be remembered and the
-    next call to [after] will immediately unblock. If the system
-    is suspended and then resumed, all event channel bindings are invalidated
-    and this function will fail with Generation.Invalid *)
-end
-
-module Port = struct
-  type t = string
-
-  let of_string x =
-    let valid_char = function
-      | 'a'..'z'
-      | 'A'..'Z'
-      | '0'..'9'
-      | '_' | '-' -> true
-      | _ -> false in
-    let rec loop n =
-      (n = String.length x)
-      || (valid_char x.[n] && loop (n + 1)) in
-    if loop 0 && (String.length x > 0)
-    then `Ok x
-    else `Error (Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; therefore '%s' is invalid." (String.escaped x))
-
-  let to_string t = t
-end
-
-module type S = sig
-  type t
-  (** Type of a vchan handler. *)
-
-  (** Type of the state of a connection between a vchan client and
-      server. *)
-  type state =
-    | Exited (** when one side has called [close] or crashed *)
-    | Connected (** when both sides are open *)
-    | WaitingForConnection (** (server only) where no client has yet connected *)
-  with sexp
-
-  type error = [
-    `Unknown of string
-  ]
-
-  val server :
-    domid:int ->
-    port:Port.t ->
-    read_size:int ->
-    write_size:int ->
-    t Lwt.t
-
-  val client :
-    domid:int ->
-    port:Port.t -> t Lwt.t
-
-  val close : t -> unit Lwt.t
-  (** Close a vchan. This deallocates the vchan and attempts to free
-      its resources. The other side is notified of the close, but can
-      still read any data pending prior to the close. *)
-
-  include V1_LWT.FLOW
-    with type flow = t
-    and  type error := error
-    and  type 'a io = 'a Lwt.t
-    and  type buffer = Cstruct.t
-
-  val state : t -> state
-  (** [state vch] is the state of a vchan connection. *)
-
-  val data_ready : t -> int
-  (** [data_ready vch] is the amount of data ready to be read on [vch],
-      in bytes. *)
-
-  val buffer_space : t -> int
-  (** [buffer_space vch] is the amount of data it is currently possible
-      to send on [vch]. *)
-end
-
+open S
 
 open Gnt
 open Lwt
@@ -508,7 +418,7 @@ let server ~domid ~port ~read_size ~write_size =
   >>= fun c ->
   Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
   Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath domid port in
+  let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath domid (Port.to_string port) in
   let acl =
     Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
   let info = [
@@ -549,7 +459,7 @@ let client ~domid ~port =
   >>= fun c ->
   Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
   Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
+  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid (Port.to_string port) in
   Xs.(wait c
     (fun xsh ->
       try_lwt
@@ -659,7 +569,7 @@ let close vch =
     >>= fun c ->
     Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
     Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-    let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath vch.remote_domid vch.remote_port in
+    let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath vch.remote_domid (Port.to_string vch.remote_port) in
     Xs.(transaction c
         (fun h ->
            rm h xs_path
