@@ -71,7 +71,6 @@ module type S = sig
   ]
 
   val server :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t ->
     read_size:int ->
@@ -79,7 +78,6 @@ module type S = sig
     t Lwt.t
 
   val client :
-    evtchn_h:Eventchn.handle ->
     domid:int ->
     port:Port.t -> t Lwt.t
 
@@ -429,7 +427,9 @@ let read vch =
   | `Eof -> Lwt.return `Eof
   | `Error m -> Lwt.return (`Error m)
 
-let server ~evtchn_h ~domid ~port ~read_size ~write_size =
+let server ~domid ~port ~read_size ~write_size =
+  let evtchn_h = Eventchn.init () in
+
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -542,25 +542,25 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size =
 
   return vch
 
-let client ~evtchn_h ~domid ~port =
-  let get_gntref_and_evtchn () =
-    Xs.make ()
-    >>= fun c ->
-    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-    Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
-    let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
-    Xs.(wait c
-      (fun xsh ->
-        try_lwt
-          read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
-          read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
-          return (rref, evtchn)
-        with _ -> fail Xs_protocol.Eagain))
-    >>= fun (gntref, evtchn) ->
-    return (int_of_string gntref, int_of_string evtchn)
-  in
-  get_gntref_and_evtchn () >>= fun (gntref, evtchn) ->
+let client ~domid ~port =
+  let evtchn_h = Eventchn.init () in
 
+  Xs.make ()
+  >>= fun c ->
+  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
+  Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
+  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid port in
+  Xs.(wait c
+    (fun xsh ->
+      try_lwt
+        read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
+        read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
+        return (rref, evtchn)
+      with _ -> fail Xs_protocol.Eagain))
+  >>= fun (gntref, evtchn) ->
+  let gntref = int_of_string gntref in
+  let evtchn = int_of_string evtchn in
+ 
   (* Map the vchan interface page *)
   let gnttab_h = Gnt.Gnttab.interface_open () in
   let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
