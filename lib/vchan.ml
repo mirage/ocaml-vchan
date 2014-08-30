@@ -485,7 +485,6 @@ let server ~evtchn_h ~domid ~port ~read_size ~write_size =
   let read_shr, read_buf = allocate_buffer_locations read_l in
   let write_shr, write_buf = allocate_buffer_locations write_l in
   let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
-  let nb_write_pages = (match write_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
 
   (* Write the gntrefs to the shared page. Ordering is left, right. *)
   List.iteri
