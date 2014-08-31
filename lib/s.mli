@@ -14,6 +14,28 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+module type CONFIGURATION = sig
+
+  type t = {
+    ring_ref: string;
+    event_channel: string;
+  }
+
+  val write:
+     client_domid:int -> port:Port.t
+  -> t
+  -> unit Lwt.t
+
+  val read:
+     server_domid:int -> port:Port.t
+  -> t Lwt.t
+
+  val delete:
+     client_domid:int -> port:Port.t
+  -> unit Lwt.t
+
+end
+
 module type MEMORY = sig
   type grant
 

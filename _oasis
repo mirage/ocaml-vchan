@@ -13,7 +13,7 @@ Library vchan
   CompiledObject:     best
   Path:               lib
   Findlibname:        vchan
-  Modules:            Connection, Port, S
+  Modules:            Connection, Port, Xenstore, S
   BuildDepends:       lwt, cstruct, io-page, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
