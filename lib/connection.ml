@@ -15,7 +15,6 @@
  *)
 open S
 
-open Gnt
 open Lwt
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
@@ -127,10 +126,9 @@ type server_params =
 
 type client_params =
   {
-    gnttab_h: Gnt.Gnttab.interface;
-    shr_map: Gnt.Gnttab.Local_mapping.t;
-    read_map: Gnt.Gnttab.Local_mapping.t option;
-    write_map: Gnt.Gnttab.Local_mapping.t option
+    shr_map: M.mapping;
+    read_map: M.mapping option;
+    write_map: M.mapping option
   }
 
 (* Vchan peers are explicitly client or servers *)
@@ -468,10 +466,8 @@ let client ~domid ~port =
   ) >>= fun unbound_port ->
  
   (* Map the vchan interface page *)
-  let gnttab_h = Gnt.Gnttab.interface_open () in
-  let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
-  let vchan_intf_cstruct = Cstruct.of_bigarray
-      (Gnt.Gnttab.Local_mapping.to_buf mapping) in
+  let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
+  let vchan_intf_cstruct = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
 
   (* Resizing vchan_intf_cstruct *)
   let nb_left_pages = 1 lsl (get_lo vchan_intf_cstruct - 12) in
@@ -497,9 +493,9 @@ let client ~domid ~port =
       | 11, 11 ->
         let gntref =
           (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface |> Int32.to_int) in
-        let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
+        let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
         (None, Cstruct.sub v 2048 2048),
-        (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping))
+        (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping))
 
       | n, m when n > 9 && m > 9 ->
         let lgrants = Array.make nb_left_pages 0 in
@@ -512,24 +508,24 @@ let client ~domid ~port =
             lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
                 (sizeof_vchan_interface + i*4) |> Int32.to_int
           done;
-          List.map (fun ref -> Gnt.Gnttab.({ domid; ref }))
+          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
             (Array.to_list lgrants) in
         let rgrants =
           for i = 0 to nb_right_pages - 1 do
             rgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
                 (sizeof_vchan_interface + nb_left_pages*4 + i*4) |> Int32.to_int
           done;
-          List.map (fun ref -> Gnt.Gnttab.({ domid; ref }))
+          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
             (Array.to_list rgrants) in
 
         (* Use the grant refs arrays to map left and right pages. *)
         let lgrants_map =
-          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h lgrants true) in
-          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+          let mapping = M.mapv ~grants:lgrants ~rw:true in
+          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
 
         let rgrants_map =
-          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h rgrants true) in
-          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+          let mapping = M.mapv ~grants:rgrants ~rw:true in
+          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
         lgrants_map, rgrants_map
 
       | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
@@ -539,21 +535,20 @@ let client ~domid ~port =
   (* Signal the server so it knows we have connected *)
   E.send evtchn;
 
-  let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
+  let role = Client { shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
   Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
 
 let close vch =
   match vch.role with
-  | Client { gnttab_h; shr_map; read_map; write_map } ->
+  | Client { shr_map; read_map; write_map } ->
     set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
     E.send vch.evtchn;
 
-    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) read_map;
-    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) write_map;
-    Gnt.Gnttab.unmap_exn gnttab_h shr_map;
-    Gnt.Gnttab.interface_close gnttab_h;
+    Opt.iter M.unmap read_map;
+    Opt.iter M.unmap write_map;
+    M.unmap shr_map;
     return ()
 
   | Server { shr_shr; read_shr; write_shr } ->

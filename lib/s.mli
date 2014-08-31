@@ -28,6 +28,17 @@ module type MEMORY = sig
   val share: domid:int -> npages:int -> rw:bool -> share
 
   val unshare: share -> unit
+
+  type mapping
+
+  val buf_of_mapping: mapping -> Io_page.t
+
+  val map: domid:int -> grant:grant -> rw:bool -> mapping
+
+  val mapv: grants:(int * grant) list -> rw:bool -> mapping
+
+  val unmap: mapping -> unit
+
 end
 
 module type EVENTS = sig

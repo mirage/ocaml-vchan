@@ -24,7 +24,7 @@ type share = {
   mapping: Io_page.t;
 }
 
-let interface_open =
+let gntshr_interface_open =
   let cache = ref None in
   fun () -> match !cache with
   | None ->
@@ -34,12 +34,36 @@ let interface_open =
   | Some i -> i
 
 let share ~domid ~npages ~rw =
-  let i = interface_open () in
+  let i = gntshr_interface_open () in
   let s = Gnt.Gntshr.share_pages_exn i domid npages rw in
   { grants = List.map Int32.of_int s.Gnt.Gntshr.refs; mapping = s.Gnt.Gntshr.mapping }
 
 let unshare s =
-  let i = interface_open () in
+  let i = gntshr_interface_open () in
   let s' = { Gnt.Gntshr.refs = List.map Int32.to_int s.grants; mapping = s.mapping } in
   Gnt.Gntshr.munmap_exn i s'
 
+let gnttab_interface_open =
+  let cache = ref None in
+  fun () -> match !cache with
+  | None ->
+    let i = Gnt.Gnttab.interface_open () in
+    cache := Some i;
+    i
+  | Some i -> i
+
+type mapping = Gnt.Gnttab.Local_mapping.t
+
+let buf_of_mapping = Gnt.Gnttab.Local_mapping.to_buf
+
+let map ~domid ~grant ~rw =
+  let i = gnttab_interface_open () in
+  Gnt.Gnttab.map_exn i { Gnt.Gnttab.domid; ref = Int32.to_int grant } rw
+
+let mapv ~grants ~rw =
+  let i = gnttab_interface_open () in
+  Gnt.Gnttab.mapv_exn i (List.map (fun (domid, gntref) -> { Gnt.Gnttab.domid; ref = Int32.to_int gntref }) grants) rw
+
+let unmap m =
+  let i = gnttab_interface_open () in
+  Gnt.Gnttab.unmap_exn i m

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9aeb110ee700757377a693e1849012eb)
+# DO NOT EDIT (digest: 4c03752e563b9c99de9adf9c16bfab21)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -21,26 +21,27 @@
 <lib/vchan.{cma,cmxa}>: use_libvchan_stubs
 <lib/*.ml{,i}>: package(cstruct)
 <lib/*.ml{,i}>: package(cstruct.syntax)
+<lib/*.ml{,i}>: package(io-page)
 <lib/*.ml{,i}>: package(lwt)
 <lib/*.ml{,i}>: package(mirage-types)
 <lib/*.ml{,i}>: package(mirage-types.lwt)
 <lib/*.ml{,i}>: package(sexplib)
 <lib/*.ml{,i}>: package(sexplib.syntax)
-<lib/*.ml{,i}>: package(xen-gnt)
 <lib/*.ml{,i}>: package(xenstore.client)
 "lib/vchan_stubs.c": package(cstruct)
 "lib/vchan_stubs.c": package(cstruct.syntax)
+"lib/vchan_stubs.c": package(io-page)
 "lib/vchan_stubs.c": package(lwt)
 "lib/vchan_stubs.c": package(mirage-types)
 "lib/vchan_stubs.c": package(mirage-types.lwt)
 "lib/vchan_stubs.c": package(sexplib)
 "lib/vchan_stubs.c": package(sexplib.syntax)
-"lib/vchan_stubs.c": package(xen-gnt)
 "lib/vchan_stubs.c": package(xenstore.client)
 # Library vchan_lwt_unix
 "lwt/vchan_lwt_unix.cmxs": use_vchan_lwt_unix
 <lwt/*.ml{,i}>: package(cstruct)
 <lwt/*.ml{,i}>: package(cstruct.syntax)
+<lwt/*.ml{,i}>: package(io-page)
 <lwt/*.ml{,i}>: package(io-page.unix)
 <lwt/*.ml{,i}>: package(lwt)
 <lwt/*.ml{,i}>: package(mirage-types)
@@ -61,6 +62,7 @@
 <lib_test/test.{native,byte}>: package(cmdliner)
 <lib_test/test.{native,byte}>: package(cstruct)
 <lib_test/test.{native,byte}>: package(cstruct.syntax)
+<lib_test/test.{native,byte}>: package(io-page)
 <lib_test/test.{native,byte}>: package(io-page.unix)
 <lib_test/test.{native,byte}>: package(lwt)
 <lib_test/test.{native,byte}>: package(mirage-types)
@@ -81,6 +83,7 @@
 <lib_test/*.ml{,i}>: package(cmdliner)
 <lib_test/*.ml{,i}>: package(cstruct)
 <lib_test/*.ml{,i}>: package(cstruct.syntax)
+<lib_test/*.ml{,i}>: package(io-page)
 <lib_test/*.ml{,i}>: package(io-page.unix)
 <lib_test/*.ml{,i}>: package(lwt)
 <lib_test/*.ml{,i}>: package(mirage-types)
@@ -102,6 +105,7 @@
 <cli/xencat.{native,byte}>: package(cmdliner)
 <cli/xencat.{native,byte}>: package(cstruct)
 <cli/xencat.{native,byte}>: package(cstruct.syntax)
+<cli/xencat.{native,byte}>: package(io-page)
 <cli/xencat.{native,byte}>: package(io-page.unix)
 <cli/xencat.{native,byte}>: package(lwt)
 <cli/xencat.{native,byte}>: package(mirage-types)
@@ -122,6 +126,7 @@
 <cli/*.ml{,i}>: package(cmdliner)
 <cli/*.ml{,i}>: package(cstruct)
 <cli/*.ml{,i}>: package(cstruct.syntax)
+<cli/*.ml{,i}>: package(io-page)
 <cli/*.ml{,i}>: package(io-page.unix)
 <cli/*.ml{,i}>: package(lwt)
 <cli/*.ml{,i}>: package(mirage-types)

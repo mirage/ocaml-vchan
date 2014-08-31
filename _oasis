@@ -14,7 +14,7 @@ Library vchan
   Path:               lib
   Findlibname:        vchan
   Modules:            Connection, Port, S
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, xen-gnt, sexplib, sexplib.syntax
+  BuildDepends:       lwt, cstruct, io-page, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
 Library vchan_lwt_unix
@@ -23,7 +23,7 @@ Library vchan_lwt_unix
   Findlibname:        lwt
   Findlibparent:      vchan
   Modules:            Vchan_lwt_unix, Events_lwt_unix, Memory_lwt_unix
-  BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
+  BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
 
 Executable test
   Install: false
