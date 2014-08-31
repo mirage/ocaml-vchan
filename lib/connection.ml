@@ -116,12 +116,13 @@ type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 2 | Write -> 1
 
+module Make(E : EVENTS)(M: MEMORY)(Xs: Xs_client_lwt.S) = struct
+
 type server_params =
   {
-    gntshr_h: Gnt.Gntshr.interface;
-    shr_shr: Gnt.Gntshr.share;
-    read_shr: Gnt.Gntshr.share option;
-    write_shr: Gnt.Gntshr.share option
+    shr_shr: M.share;
+    read_shr: M.share option;
+    write_shr: M.share option
   }
 
 type client_params =
@@ -137,8 +138,6 @@ type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-
-module Make(E : EVENTS)(Xs: Xs_client_lwt.S) = struct
 
 (* The state of a single vchan peer *)
 type t = {
@@ -346,9 +345,8 @@ let server ~domid ~port ~read_size ~write_size =
      the 'server' *)
 
   (* Allocate and initialise the shared page *)
-  let gntshr_h = Gnt.Gntshr.interface_open () in
-  let shr_shr = Gnt.Gntshr.share_pages_exn gntshr_h domid 1 true in
-  let v = Cstruct.of_bigarray Gnt.Gntshr.(shr_shr.mapping) in
+  let shr_shr = M.share ~domid ~npages:1 ~rw:true in
+  let v = Cstruct.of_bigarray shr_shr.M.mapping in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -385,31 +383,31 @@ let server ~domid ~port ~read_size ~write_size =
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
   | Offset2048 -> None, Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048)
   | External n ->
-    let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
-    let pages = Gnt.Gntshr.(share.mapping) in
+    let share = M.share ~domid ~npages:(1 lsl n) ~rw:true in
+    let pages = share.M.mapping in
     Some share, Cstruct.of_bigarray pages in
 
   let read_shr, read_buf = allocate_buffer_locations read_l in
   let write_shr, write_buf = allocate_buffer_locations write_l in
-  let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
+  let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length shr.M.grants) in
 
   (* Write the gntrefs to the shared page. Ordering is left, right. *)
   List.iteri
     (fun i ref ->
-       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4) (Int32.of_int ref))
-    (match read_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
+       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4) (M.int32_of_grant ref))
+    (match read_shr with None -> [] | Some shr -> shr.M.grants);
 
   List.iteri
     (fun i ref ->
        Cstruct.LE.set_uint32 v (sizeof_vchan_interface+(i+nb_read_pages)*4)
-         (Int32.of_int ref))
-    (match write_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
+         (M.int32_of_grant ref))
+    (match write_shr with None -> [] | Some shr -> shr.M.grants);
 
   (* Allocate the event channel *)
   let unbound_port, evtchn = E.listen domid in
 
   (* Write the config to XenStore *)
-  let ring_ref = Gnt.(string_of_int (List.hd shr_shr.Gntshr.refs)) in
+  let ring_ref = shr_shr.M.grants |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
   Xs.make ()
   >>= fun c ->
@@ -432,7 +430,7 @@ let server ~domid ~port ~read_size ~write_size =
   )
   >>= fun () ->
 
-  let role = Server { gntshr_h; shr_shr; read_shr; write_shr } in
+  let role = Server { shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
   let vch = { remote_port; remote_domid; shared_page=v; role;
@@ -558,7 +556,7 @@ let close vch =
     Gnt.Gnttab.interface_close gnttab_h;
     return ()
 
-  | Server { gntshr_h; shr_shr; read_shr; write_shr } ->
+  | Server { shr_shr; read_shr; write_shr } ->
     set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
     E.send vch.evtchn;
 
@@ -582,10 +580,9 @@ let close vch =
     )
     >>= fun () ->
 
-    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) read_shr;
-    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
-    Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
-    Gnt.Gntshr.interface_close gntshr_h;
+    Opt.iter M.unshare read_shr;
+    Opt.iter M.unshare write_shr;
+    M.unshare shr_shr;
     return ()
 
 end

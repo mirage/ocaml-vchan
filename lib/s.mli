@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2013 Citrix Systems Inc
+ * Copyright (c) 2013,2014 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,6 +13,22 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+
+module type MEMORY = sig
+  type grant
+
+  val grant_of_int32: int32 -> grant
+  val int32_of_grant: grant -> int32
+
+  type share = {
+    grants: grant list;
+    mapping: Io_page.t;
+  }
+
+  val share: domid:int -> npages:int -> rw:bool -> share
+
+  val unshare: share -> unit
+end
 
 module type EVENTS = sig
 

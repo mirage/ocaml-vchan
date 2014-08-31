@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2013 Citrix Systems Inc
+ * Copyright (c) 2014 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,32 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+type grant = int32
 
-(** Client and server interface for Xen's vchan protocol. *)
+let grant_of_int32 x = x
+let int32_of_grant x = x
 
-module Make(A : S.EVENTS)(M: S.MEMORY)(Xs: Xs_client_lwt.S) : S.S
+type share = {
+  grants: grant list;
+  mapping: Io_page.t;
+}
+
+let interface_open =
+  let cache = ref None in
+  fun () -> match !cache with
+  | None ->
+    let i = Gnt.Gntshr.interface_open () in
+    cache := Some i;
+    i
+  | Some i -> i
+
+let share ~domid ~npages ~rw =
+  let i = interface_open () in
+  let s = Gnt.Gntshr.share_pages_exn i domid npages rw in
+  { grants = List.map Int32.of_int s.Gnt.Gntshr.refs; mapping = s.Gnt.Gntshr.mapping }
+
+let unshare s =
+  let i = interface_open () in
+  let s' = { Gnt.Gntshr.refs = List.map Int32.to_int s.grants; mapping = s.mapping } in
+  Gnt.Gntshr.munmap_exn i s'
+

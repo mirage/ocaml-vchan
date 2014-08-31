@@ -22,7 +22,7 @@ Library vchan_lwt_unix
   Path:               lwt
   Findlibname:        lwt
   Findlibparent:      vchan
-  Modules:            Vchan_lwt_unix, Events_lwt_unix
+  Modules:            Vchan_lwt_unix, Events_lwt_unix, Memory_lwt_unix
   BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
 
 Executable test
