@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2013 Citrix Systems Inc
+ * Copyright (c) 2014 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+(* FIXME: this module should move into xen-evtchn.unix.activations *)
 
-(** Client and server interface for Xen's vchan protocol. *)
-
-module Make(A : S.EVENTS)(Xs: Xs_client_lwt.S) : S.S
+include Vchan.S.EVENTS

@@ -18,6 +18,6 @@ module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
 
 let () =
   let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  let module M = Vchan.Connection.Make(Unix_activations)(Xs) in
+  let module M = Vchan.Connection.Make(Events_lwt_unix)(Xs) in
   let module Test = Check_flow_compatible(M) in
   ()

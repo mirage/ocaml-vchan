@@ -14,24 +14,50 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+module type EVENTS = sig
 
-module type ACTIVATIONS = sig
+  type port
+  (** an identifier for a source of events. Ports are allocated by calls to
+      [listen], then exchanged out-of-band (typically by xenstore) and
+      finally calls to [connect] creates a channel between the two domains.
+      Events are send and received over these channels. *)
 
-(** Event channels handlers. *)
+  val port_of_string: string -> [ `Ok of port | `Error of string ]
+  val string_of_port: port -> string
 
-type event
-(** identifies the an event notification received from xen *)
+  type channel
+  (** a channel is the connection between two domains and is used to send
+      and receive events. *)
 
-val program_start: event
-(** represents an event which 'fired' when the program started *)
+  type event
+  (** an event notification received from a remote domain. Events contain no
+      data and may be coalesced. Domains which are blocked will be woken up
+      by an event. *)
 
-val after: Eventchn.t -> event -> event Lwt.t
-(** [next channel event] blocks until the system receives an event
-    newer than [event] on channel [channel]. If an event is received
-    while we aren't looking then this will be remembered and the
-    next call to [after] will immediately unblock. If the system
-    is suspended and then resumed, all event channel bindings are invalidated
-    and this function will fail with Generation.Invalid *)
+  val initial: event
+  (** represents an event which 'fired' when the program started *)
+
+  val recv: channel -> event -> event Lwt.t
+  (** [recv channel event] blocks until the system receives an event
+      newer than [event] on channel [channel]. If an event is received
+      while we aren't looking then this will be remembered and the
+      next call to [after] will immediately unblock. If the system
+      is suspended and then resumed, all event channel bindings are invalidated
+      and this function will fail with Generation.Invalid *)
+
+  val send: channel -> unit
+  (** [send channel] sends an event along [channel], to another domain
+      which will be woken up *)
+
+  val listen: int -> port * channel
+  (** [listen domid] allocates a fresh port and event channel. The port
+      may be supplied to [connect] *)
+
+  val connect: int -> port -> channel
+  (** [connect domid port] connects an event channel to [port] on [domid] *)
+
+  val close: channel -> unit
+  (** [close channel] closes this side of an event channel *)
 end
 
 module type S = sig
