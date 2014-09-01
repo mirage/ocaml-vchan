@@ -14,6 +14,36 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+module Config = struct
+  open Lwt
+
+  type t = {
+    ring_ref: string;
+    event_channel: string;
+  }
+
+  let tbl: (Port.t, t) Hashtbl.t = Hashtbl.create 16
+
+  let c = Lwt_condition.create ()
+
+  let write ~client_domid ~port t =
+    Hashtbl.replace tbl port t;
+    return ()
+
+  let read ~server_domid ~port =
+    let rec loop () =
+      if Hashtbl.mem tbl port
+      then return (Hashtbl.find tbl port)
+      else
+        Lwt_condition.wait c >>= fun () ->
+        loop () in
+    loop ()
+
+  let delete ~client_domid ~port =
+    Hashtbl.remove tbl port;
+    return ()
+end
+
 module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
 
 let () =
