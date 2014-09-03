@@ -94,6 +94,56 @@ module Memory = struct
   let unmap _ = ()
 end
 
+module Events = struct
+  open Lwt
+
+  type port = int
+
+  let port_of_string x = `Ok (int_of_string x)
+  let string_of_port = string_of_int
+
+  type channel = int
+  let get =
+    let g = ref 0 in
+    fun () ->
+      incr g;
+      !g - 1
+
+  type event = int
+  let initial = 0
+
+  let channels = Array.create 1024 0
+  let c = Lwt_condition.create ()
+
+  let rec recv channel event =
+    if channels.(channel) > event
+    then return channels.(channel)
+    else
+      Lwt_condition.wait c >>= fun () ->
+      recv channel event
+
+  let connected_to = Array.create 1024 (-1)
+
+  let send channel =
+    let listening = connected_to.(channel) in
+    channels.(listening) <- channels.(listening) + 1;
+    Lwt_condition.broadcast c ()
+
+  let listen _ =
+    let port = get () in
+    port, port
+
+  let connect _ port =
+    let port' = get () in
+    connected_to.(port') <- port;
+    port'
+
+  let close port =
+    channels.(port) <- 0;
+    connected_to.(port) <- (-1)
+end
+
+
 module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
 
 let () =
