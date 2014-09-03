@@ -115,7 +115,7 @@ type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 2 | Write -> 1
 
-module Make(E : EVENTS)(M: MEMORY)(Xs: Xs_client_lwt.S) = struct
+module Make(E : EVENTS)(M: MEMORY)(C: CONFIGURATION) = struct
 
 type server_params =
   {
@@ -407,26 +407,8 @@ let server ~domid ~port ~read_size ~write_size =
   (* Write the config to XenStore *)
   let ring_ref = shr_shr.M.grants |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
-  Xs.make ()
-  >>= fun c ->
-  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-  Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath domid (Port.to_string port) in
-  let acl =
-    Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
-  let info = [
-    xs_path ^ "/ring-ref", ring_ref;
-    xs_path ^ "/event-channel", E.string_of_port unbound_port;
-  ] in
-  Xs.(transaction c
-        (fun h ->
-           Lwt_list.iter_s (fun (k, v) ->
-             write h k v >>= fun () ->
-             setperms h k acl
-           ) info
-        )
-  )
-  >>= fun () ->
+  C.write ~client_domid:domid ~port { C.ring_ref; event_channel = E.string_of_port unbound_port }
+  >>= fun () -> 
 
   let role = Server { shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
@@ -446,19 +428,8 @@ let server ~domid ~port ~read_size ~write_size =
   return vch
 
 let client ~domid ~port =
-  Xs.make ()
-  >>= fun c ->
-  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-  Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid (Port.to_string port) in
-  Xs.(wait c
-    (fun xsh ->
-      try_lwt
-        read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
-        read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
-        return (rref, evtchn)
-      with _ -> fail Xs_protocol.Eagain))
-  >>= fun (gntref, evtchn) ->
+  C.read ~server_domid:domid ~port
+  >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
   let gntref = int_of_string gntref in
   (match E.port_of_string evtchn with
    | `Ok x -> return x
@@ -556,23 +527,7 @@ let close vch =
     E.send vch.evtchn;
 
     (* Remove the advertising in xenstore *)
-    Xs.make ()
-    >>= fun c ->
-    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-    Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-    let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath vch.remote_domid (Port.to_string vch.remote_port) in
-    Xs.(transaction c
-        (fun h ->
-           rm h xs_path
-           >>= fun () ->
-           (* If there are no more connections to remote_domid, remove the whole directory *)
-           let dir = Filename.dirname xs_path in
-           directory h dir
-           >>= function
-           | [] -> rm h dir
-           | _ -> return ()
-        )
-    )
+    C.delete ~client_domid:vch.remote_domid ~port:vch.remote_port
     >>= fun () ->
 
     Opt.iter M.unshare read_shr;

@@ -22,7 +22,7 @@ module Config = struct
     event_channel: string;
   }
 
-  let tbl: (Port.t, t) Hashtbl.t = Hashtbl.create 16
+  let tbl: (Vchan.Port.t, t) Hashtbl.t = Hashtbl.create 16
 
   let c = Lwt_condition.create ()
 
@@ -148,6 +148,8 @@ module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
 
 let () =
   let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  let module M = Vchan.Connection.Make(Events_lwt_unix)(Memory_lwt_unix)(Xs) in
+  let module M = Vchan.Connection.Make(Events_lwt_unix)(Memory_lwt_unix)(Vchan.Xenstore.Make(Xs)) in
   let module Test = Check_flow_compatible(M) in
   ()
+
+module V = Vchan.Connection.Make(Events)(Memory)(Config)
