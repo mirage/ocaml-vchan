@@ -44,6 +44,56 @@ module Config = struct
     return ()
 end
 
+module Memory = struct
+  type grant = int32
+
+  let grant_of_int32 x = x
+  let int32_of_grant x = x
+
+  type share = {
+    grants: grant list;
+    mapping: Io_page.t;
+  }
+
+  let get =
+    let g = ref Int32.zero in
+    fun () ->
+      g := Int32.succ !g;
+      Int32.pred !g
+
+  let rec get_n n =
+    if n = 0 then [] else get () :: (get_n (n-1))
+
+  let individual_pages = Hashtbl.create 16
+  let big_mapping = Hashtbl.create 16
+
+  let share ~domid ~npages ~rw =
+    let mapping = Io_page.get npages in
+    let grants = get_n npages in
+    let share = { grants; mapping } in
+    let pages = Io_page.to_pages mapping in
+    List.iter (fun (grant, page) -> Hashtbl.replace individual_pages grant page) (List.combine grants pages);
+    Hashtbl.replace big_mapping (List.hd grants) mapping;
+    share
+
+  let unshare share =
+    List.iter (fun grant -> Hashtbl.remove individual_pages grant) share.grants;
+    Hashtbl.remove big_mapping (List.hd share.grants)
+
+  type mapping = Io_page.t
+
+  let buf_of_mapping x = x
+
+  let map ~domid:_ ~grant ~rw:_ =
+    Hashtbl.find individual_pages grant
+
+  let mapv ~grants ~rw:_ =
+    let first = snd (List.hd grants) in
+    Hashtbl.find big_mapping first
+
+  let unmap _ = ()
+end
+
 module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
 
 let () =
