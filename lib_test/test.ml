@@ -136,11 +136,16 @@ module Events = struct
   let connect _ port =
     let port' = get () in
     connected_to.(port') <- port;
+    connected_to.(port) <- port';
     port'
 
   let close port =
     channels.(port) <- 0;
-    connected_to.(port) <- (-1)
+    let other = connected_to.(port) in
+    if other <> -1 then begin
+      connected_to.(port) <- (-1);
+      connected_to.(other) <- (-1);
+    end
 end
 
 
@@ -153,3 +158,31 @@ let () =
   ()
 
 module V = Vchan.Connection.Make(Events)(Memory)(Config)
+
+let port = match Vchan.Port.of_string "test" with
+| `Error _ -> failwith "Failed to parse test port"
+| `Ok x -> x
+
+open Lwt
+
+let test_connect () =
+  let server_t = V.server ~domid:1 ~port ~read_size:1024 ~write_size:1024 in
+  let client_t = V.client ~domid:0 ~port in
+  server_t >>= fun server ->
+  client_t >>= fun client ->
+  V.close client >>= fun () ->
+  V.close server
+
+let _ =
+  let open OUnit in
+  let verbose = ref false in
+  Arg.parse [
+    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
+  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
+    "Test vchan protocol code";
+
+  let suite = "vchan" >::: [
+    "connect" >:: (fun () -> Lwt_main.run (test_connect ()))
+  ] in
+  run_test_tt ~verbose:!verbose suite
+
