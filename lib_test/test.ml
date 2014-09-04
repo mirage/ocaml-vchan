@@ -161,15 +161,12 @@ module Events = struct
 end
 
 
-module Check_flow_compatible(F: V1_LWT.FLOW) = struct end
+module V = Vchan.Connection.Make(Events)(Memory)(Config)
 
 let () =
-  let module Xs = Xs_client_lwt.Client(Xs_transport_lwt_unix_client) in
-  let module M = Vchan.Connection.Make(Events_lwt_unix)(Memory_lwt_unix)(Vchan.Xenstore.Make(Xs)) in
-  let module Test = Check_flow_compatible(M) in
+  let module Check_flow_compatible(F: V1_LWT.FLOW) = struct end in
+  let module Test = Check_flow_compatible(V) in
   ()
-
-module V = Vchan.Connection.Make(Events)(Memory)(Config)
 
 let port = match Vchan.Port.of_string "test" with
 | `Error _ -> failwith "Failed to parse test port"

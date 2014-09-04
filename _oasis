@@ -35,7 +35,7 @@ Executable test
   CompiledObject: best
   Path: lib_test
   MainIs: test.ml
-  BuildDepends: cmdliner, lwt, vchan, vchan.lwt, oUnit
+  BuildDepends: cmdliner, lwt, lwt.unix, vchan, oUnit, io-page.unix
 
 Test core_test
   Run$:               flag(tests)
