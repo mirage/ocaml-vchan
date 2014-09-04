@@ -14,8 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open S
-
-open Gnt
+open Sexplib.Std
 open Lwt
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
@@ -85,6 +84,7 @@ type buffer_location =
   | Offset1024      (* 1024-byte ring at offset 1024 in shared page *)
   | Offset2048      (* 2048-byte ring at offset 2048 in shared page *)
   | External of int (* 2 ^^ x pages in use *)
+with sexp
 
 let length_available_at_buffer_location = function
   | Offset1024 -> 1024
@@ -116,29 +116,30 @@ type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 2 | Write -> 1
 
+module Make(E : EVENTS)(M: MEMORY)(C: CONFIGURATION) = struct
+
 type server_params =
   {
-    gntshr_h: Gnt.Gntshr.interface;
-    shr_shr: Gnt.Gntshr.share;
-    read_shr: Gnt.Gntshr.share option;
-    write_shr: Gnt.Gntshr.share option
+    shr_shr: M.share;
+    read_shr: M.share option;
+    write_shr: M.share option
   }
+with sexp_of
 
 type client_params =
   {
-    gnttab_h: Gnt.Gnttab.interface;
-    shr_map: Gnt.Gnttab.Local_mapping.t;
-    read_map: Gnt.Gnttab.Local_mapping.t option;
-    write_map: Gnt.Gnttab.Local_mapping.t option
+    shr_map: M.mapping;
+    read_map: M.mapping option;
+    write_map: M.mapping option
   }
+with sexp_of
 
 (* Vchan peers are explicitly client or servers *)
 type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-
-module Make(A : ACTIVATIONS)(Xs: Xs_client_lwt.S) = struct
+with sexp_of
 
 (* The state of a single vchan peer *)
 type t = {
@@ -148,9 +149,8 @@ type t = {
   role: role;
   read: Cstruct.t; (* the ring where you read data from *)
   write: Cstruct.t; (* the ring where you write data to *)
-  evtchn_h: Eventchn.handle; (* handler to the Eventchn interface *)
-  evtchn: Eventchn.t; (* Event channel to notify the other end *)
-  mutable token: A.event;
+  evtchn: E.channel; (* Event channel to notify the other end *)
+  mutable token: E.event;
   mutable ack_up_to: int; (* FLOW reader has seen this much data *)
 }
 
@@ -211,16 +211,65 @@ let rd_ring_size vch = match vch.role with
   | Client _ -> 1 lsl get_ro vch.shared_page
   | Server _ -> 1 lsl get_lo vch.shared_page
 
+(* A convenient wrapper to enhance the pretty-printing *)
+type printable_t = {
+  role: role;
+  left_order: buffer_location option;
+  right_order: buffer_location option;
+  remote_domid: int;
+  remote_port: Port.t;
+  client_state: state option;
+  server_state: state option;
+  read_producer: int32;
+  read_consumer: int32;
+  read: string;
+  write_producer: int32;
+  write_consumer: int32;
+  write: string;
+  ack_up_to: int;
+} with sexp_of
+
+let sexp_of_t (t: t) =
+  let role = t.role in
+  let client_state =
+    match state_of_live (get_vchan_interface_cli_live t.shared_page)
+    with Ok st -> Some st | _ -> None in
+  let server_state =
+    match state_of_live (get_vchan_interface_srv_live t.shared_page)
+    with Ok st -> Some st | _ -> None in
+  let left_order =
+    match buffer_location_of_order (get_vchan_interface_left_order t.shared_page)
+    with Ok x -> Some x | _ -> None in
+  let right_order =
+    match buffer_location_of_order (get_vchan_interface_right_order t.shared_page)
+    with Ok x -> Some x | _ -> None in
+  let read_producer = rd_prod t in
+  let read_consumer = rd_cons t in
+  let read = Cstruct.to_string t.read in
+  let write_producer = wr_prod t in
+  let write_consumer = wr_cons t in
+  let write = Cstruct.to_string t.write in
+  let remote_domid = t.remote_domid in
+  let remote_port = t.remote_port in
+  let ack_up_to = t.ack_up_to in
+  let printable_t = {
+    role; left_order; right_order;
+    client_state; server_state; read_producer; read_consumer; read;
+    write_producer; write_consumer; write; remote_domid; remote_port;
+    ack_up_to;
+  } in
+  sexp_of_printable_t printable_t
+
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)
-let request_notify vch rdwr =
+let request_notify (vch: t) rdwr =
   let open Cstruct in
   (* This should be correct: client -> srv_notify | server -> cli_notify *)
   let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
   i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr))
   (*; Xenctrl.xen_mb ()*)
 
-let send_notify vch rdwr =
+let send_notify (vch: t) rdwr =
   let open Cstruct in
   (*Xenctrl.xen_mb ();*)
   (* This should be correct: client -> cli_notify | server -> srv_notify *)
@@ -229,18 +278,18 @@ let send_notify vch rdwr =
   let prev =
     (* clear the bit and return previous value *)
     atomic_fetch_and vch.shared_page.buffer idx (lnot bit) in
-  if prev land bit <> 0 then Eventchn.notify vch.evtchn_h vch.evtchn
+  if prev land bit <> 0 then E.send vch.evtchn
 
-let fast_get_data_ready vch request =
+let fast_get_data_ready (vch: t) request =
   let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
   if ready >= request then ready else
     (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch |> to_int))
 
-let data_ready vch =
+let data_ready (vch: t) =
   request_notify vch Write;
   Int32.(rd_prod vch - rd_cons vch |> to_int)
 
-let fast_get_buffer_space vch request =
+let fast_get_buffer_space (vch: t) request =
   let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int) in
   if ready > request then ready else
     (
@@ -248,7 +297,7 @@ let fast_get_buffer_space vch request =
       wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
     )
 
-let buffer_space vch =
+let buffer_space (vch: t) =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
@@ -289,8 +338,8 @@ let write vch buf =
       let pos = pos + avail in
       if pos = len
       then Lwt.return (`Ok ())
-      else A.after vch.evtchn event >>= fun event -> inner pos event
-  in inner 0 A.program_start
+      else E.recv vch.evtchn event >>= fun event -> inner pos event
+  in inner 0 E.initial
 
 let rec writev vch = function
 | [] -> Lwt.return (`Ok ())
@@ -307,7 +356,7 @@ let rec _read_one vch event =
   let avail = fast_get_data_ready vch 1 in
   let state = state vch in
   if avail = 0 && state = Connected
-  then A.after vch.evtchn event >>= fun event -> _read_one vch event
+  then E.recv vch.evtchn event >>= fun event -> _read_one vch event
   else
     if avail = 0 && state <> Connected
     then Lwt.return `Eof
@@ -329,7 +378,7 @@ let read vch =
   set_rd_cons vch Int32.(of_int vch.ack_up_to);
   send_notify vch Read;
   (* get the fresh data *)
-  _read_one vch A.program_start >>= function
+  _read_one vch E.initial >>= function
   | `Ok buf ->
     (* we'll signal the remote we've consumed this data on the next iteration *)
     vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
@@ -338,8 +387,6 @@ let read vch =
   | `Error m -> Lwt.return (`Error m)
 
 let server ~domid ~port ~read_size ~write_size =
-  let evtchn_h = Eventchn.init () in
-
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
@@ -349,9 +396,8 @@ let server ~domid ~port ~read_size ~write_size =
      the 'server' *)
 
   (* Allocate and initialise the shared page *)
-  let gntshr_h = Gnt.Gntshr.interface_open () in
-  let shr_shr = Gnt.Gntshr.share_pages_exn gntshr_h domid 1 true in
-  let v = Cstruct.of_bigarray Gnt.Gntshr.(shr_shr.mapping) in
+  let shr_shr = M.share ~domid ~npages:1 ~rw:true in
+  let v = Cstruct.of_bigarray (M.buf_of_share shr_shr) in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -381,101 +427,71 @@ let server ~domid ~port ~read_size ~write_size =
   | Offset2048, Offset2048 -> Offset2048, External 0
   | n                      -> n in
 
-  set_vchan_interface_right_order v (order_of_buffer_location read_l);
-  set_vchan_interface_left_order v (order_of_buffer_location write_l);
+  set_vchan_interface_left_order v (order_of_buffer_location read_l);
+  set_vchan_interface_right_order v (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
   | Offset2048 -> None, Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048)
   | External n ->
-    let share = Gnt.Gntshr.share_pages_exn gntshr_h domid (1 lsl n) true in
-    let pages = Gnt.Gntshr.(share.mapping) in
+    let share = M.share ~domid ~npages:(1 lsl n) ~rw:true in
+    let pages = M.buf_of_share share in
     Some share, Cstruct.of_bigarray pages in
 
   let read_shr, read_buf = allocate_buffer_locations read_l in
   let write_shr, write_buf = allocate_buffer_locations write_l in
-  let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length Gnt.Gntshr.(shr.refs)) in
+  let nb_read_pages = match read_shr with None -> 0 | Some shr -> List.length (M.grants_of_share shr) in
 
   (* Write the gntrefs to the shared page. Ordering is left, right. *)
   List.iteri
     (fun i ref ->
-       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4) (Int32.of_int ref))
-    (match read_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
+       Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4) (M.int32_of_grant ref))
+    (match read_shr with None -> [] | Some shr -> M.grants_of_share shr);
 
   List.iteri
     (fun i ref ->
        Cstruct.LE.set_uint32 v (sizeof_vchan_interface+(i+nb_read_pages)*4)
-         (Int32.of_int ref))
-    (match write_shr with None -> [] | Some shr -> Gnt.Gntshr.(shr.refs));
+         (M.int32_of_grant ref))
+    (match write_shr with None -> [] | Some shr -> M.grants_of_share shr);
 
   (* Allocate the event channel *)
-  let evtchn = Eventchn.bind_unbound_port evtchn_h domid in
+  let unbound_port, evtchn = E.listen domid in
 
   (* Write the config to XenStore *)
-  let ring_ref = Gnt.(string_of_int (List.hd shr_shr.Gntshr.refs)) in
+  let ring_ref = M.grants_of_share shr_shr |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
-  Xs.make ()
-  >>= fun c ->
-  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-  Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath domid (Port.to_string port) in
-  let acl =
-    Xs_protocol.ACL.({owner = int_of_string my_domid; other = NONE; acl = [ domid, READ ]}) in
-  let info = [
-    xs_path ^ "/ring-ref", ring_ref;
-    xs_path ^ "/event-channel", string_of_int (Eventchn.to_int evtchn);
-  ] in
-  Xs.(transaction c
-        (fun h ->
-           Lwt_list.iter_s (fun (k, v) ->
-             write h k v >>= fun () ->
-             setperms h k acl
-           ) info
-        )
-  )
-  >>= fun () ->
+  C.write ~client_domid:domid ~port { C.ring_ref; event_channel = E.string_of_port unbound_port }
+  >>= fun () -> 
 
-  let role = Server { gntshr_h; shr_shr; read_shr; write_shr } in
+  let role = Server { shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
   let vch = { remote_port; remote_domid; shared_page=v; role;
-              read=read_buf; write=write_buf; evtchn_h; evtchn;
-              token=A.program_start; ack_up_to } in
+              read=read_buf; write=write_buf; evtchn;
+              token=E.initial; ack_up_to } in
   (* Wait for the connection *)
   let rec loop event =
     if state vch = WaitingForConnection then begin
-      A.after evtchn event >>= fun event -> 
+      E.recv evtchn event >>= fun event -> 
       loop event
     end else return () in
-  loop A.program_start
+  loop E.initial
   >>= fun () ->
 
   return vch
 
 let client ~domid ~port =
-  let evtchn_h = Eventchn.init () in
-
-  Xs.make ()
-  >>= fun c ->
-  Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-  Xs.(immediate c (fun h -> getdomainpath h domid)) >>= fun domainpath ->
-  let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath my_domid (Port.to_string port) in
-  Xs.(wait c
-    (fun xsh ->
-      try_lwt
-        read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
-        read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
-        return (rref, evtchn)
-      with _ -> fail Xs_protocol.Eagain))
-  >>= fun (gntref, evtchn) ->
+  C.read ~server_domid:domid ~port
+  >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
   let gntref = int_of_string gntref in
-  let evtchn = int_of_string evtchn in
+  (match E.port_of_string evtchn with
+   | `Ok x -> return x
+   | `Error m -> fail (Failure m)
+  ) >>= fun unbound_port ->
  
   (* Map the vchan interface page *)
-  let gnttab_h = Gnt.Gnttab.interface_open () in
-  let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
-  let vchan_intf_cstruct = Cstruct.of_bigarray
-      (Gnt.Gnttab.Local_mapping.to_buf mapping) in
+  let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
+  let vchan_intf_cstruct = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
 
   (* Resizing vchan_intf_cstruct *)
   let nb_left_pages = 1 lsl (get_lo vchan_intf_cstruct - 12) in
@@ -488,7 +504,7 @@ let client ~domid ~port =
   set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
 
   (* Bind the event channel *)
-  let evtchn = Eventchn.bind_interdomain evtchn_h domid evtchn in
+  let evtchn = E.connect domid unbound_port in
 
   (* Map the rings *)
   let rings_of_vchan_intf v =
@@ -501,9 +517,9 @@ let client ~domid ~port =
       | 11, 11 ->
         let gntref =
           (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface |> Int32.to_int) in
-        let mapping = Gnt.Gnttab.(map_exn gnttab_h { domid; ref=gntref } true) in
+        let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
         (None, Cstruct.sub v 2048 2048),
-        (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping))
+        (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping))
 
       | n, m when n > 9 && m > 9 ->
         let lgrants = Array.make nb_left_pages 0 in
@@ -516,24 +532,24 @@ let client ~domid ~port =
             lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
                 (sizeof_vchan_interface + i*4) |> Int32.to_int
           done;
-          List.map (fun ref -> Gnt.Gnttab.({ domid; ref }))
+          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
             (Array.to_list lgrants) in
         let rgrants =
           for i = 0 to nb_right_pages - 1 do
             rgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
                 (sizeof_vchan_interface + nb_left_pages*4 + i*4) |> Int32.to_int
           done;
-          List.map (fun ref -> Gnt.Gnttab.({ domid; ref }))
+          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
             (Array.to_list rgrants) in
 
         (* Use the grant refs arrays to map left and right pages. *)
         let lgrants_map =
-          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h lgrants true) in
-          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+          let mapping = M.mapv ~grants:lgrants ~rw:true in
+          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
 
         let rgrants_map =
-          let mapping = Gnt.Gnttab.(mapv_exn gnttab_h rgrants true) in
-          (Some mapping, Cstruct.of_bigarray (Gnt.Gnttab.Local_mapping.to_buf mapping)) in
+          let mapping = M.mapv ~grants:rgrants ~rw:true in
+          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
         lgrants_map, rgrants_map
 
       | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
@@ -541,53 +557,35 @@ let client ~domid ~port =
   let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
 
   (* Signal the server so it knows we have connected *)
-  Eventchn.notify evtchn_h evtchn;
+  E.send evtchn;
 
-  let role = Client { gnttab_h; shr_map=mapping; read_map=r_map; write_map=w_map } in
+  let role = Client { shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
-  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn_h; evtchn; token=A.program_start; ack_up_to }
+  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
 
-let close vch =
+let close (vch: t) =
   match vch.role with
-  | Client { gnttab_h; shr_map; read_map; write_map } ->
+  | Client { shr_map; read_map; write_map } ->
     set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
-    Eventchn.notify vch.evtchn_h vch.evtchn;
+    E.send vch.evtchn;
 
-    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) read_map;
-    Opt.iter (Gnt.Gnttab.unmap_exn gnttab_h) write_map;
-    Gnt.Gnttab.unmap_exn gnttab_h shr_map;
-    Gnt.Gnttab.interface_close gnttab_h;
+    Opt.iter M.unmap read_map;
+    Opt.iter M.unmap write_map;
+    M.unmap shr_map;
     return ()
 
-  | Server { gntshr_h; shr_shr; read_shr; write_shr } ->
+  | Server { shr_shr; read_shr; write_shr } ->
     set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
-    Eventchn.notify vch.evtchn_h vch.evtchn;
+    E.send vch.evtchn;
 
     (* Remove the advertising in xenstore *)
-    Xs.make ()
-    >>= fun c ->
-    Xs.(immediate c (fun h -> read h "domid")) >>= fun my_domid ->
-    Xs.(immediate c (fun h -> getdomainpath h (int_of_string my_domid))) >>= fun domainpath ->
-    let xs_path = Printf.sprintf "%s/data/vchan/%d/%s" domainpath vch.remote_domid (Port.to_string vch.remote_port) in
-    Xs.(transaction c
-        (fun h ->
-           rm h xs_path
-           >>= fun () ->
-           (* If there are no more connections to remote_domid, remove the whole directory *)
-           let dir = Filename.dirname xs_path in
-           directory h dir
-           >>= function
-           | [] -> rm h dir
-           | _ -> return ()
-        )
-    )
+    C.delete ~client_domid:vch.remote_domid ~port:vch.remote_port
     >>= fun () ->
 
-    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) read_shr;
-    Opt.iter (Gnt.Gntshr.munmap_exn gntshr_h) write_shr;
-    Gnt.Gntshr.munmap_exn gntshr_h shr_shr;
-    Gnt.Gntshr.interface_close gntshr_h;
+    Opt.iter M.unshare read_shr;
+    Opt.iter M.unshare write_shr;
+    M.unshare shr_shr;
     return ()
 
 end

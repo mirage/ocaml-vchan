@@ -8,31 +8,42 @@ Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 OCamlVersion: >= 4.00
 
+Flag xenctrl
+  Description:        build Unix userspace implementation and tools
+  Default:            false
+
 Library vchan
   Pack:               true
   CompiledObject:     best
   Path:               lib
   Findlibname:        vchan
-  Modules:            Connection, Port, S
-  BuildDepends:       lwt, cstruct, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, xen-evtchn (>= 1.0.3), xen-gnt, sexplib, sexplib.syntax
+  Modules:            Connection, Port, Xenstore, S
+  BuildDepends:       lwt, cstruct, io-page, cstruct.syntax, mirage-types (>= 1.1.3), mirage-types.lwt, xenstore.client, sexplib, sexplib.syntax
   CSources:           vchan_stubs.c
 
 Library vchan_lwt_unix
+  Build$:             flag(xenctrl)
   CompiledObject:     best
   Path:               lwt
   Findlibname:        lwt
   Findlibparent:      vchan
-  Modules:            Vchan_lwt_unix
-  BuildDepends:       lwt, xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
+  Modules:            Vchan_lwt_unix, Events_lwt_unix, Memory_lwt_unix
+  BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
 
 Executable test
   Install: false
   CompiledObject: best
   Path: lib_test
   MainIs: test.ml
-  BuildDepends: cmdliner, lwt, vchan, vchan.lwt
+  BuildDepends: cmdliner, lwt, vchan, vchan.lwt, oUnit
+
+Test core_test
+  Run$:               flag(tests)
+  Command:            $test
+  WorkingDirectory:   lib_test
 
 Executable xencat
+  Build$:             flag(xenctrl)
   Install: false
   CompiledObject: best
   Path: cli

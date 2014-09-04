@@ -3,6 +3,7 @@ setup.*
 *.docdir
 *.byte
 *.native
+config.mk
 test/*.map
 test/*.xen
 test/*.xl
