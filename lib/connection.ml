@@ -217,7 +217,7 @@ type printable_t = {
   read_consumer: int32;
   write_producer: int32;
   write_consumer: int32;
-} with sexp
+} with sexp_of
 
 let sexp_of_t t =
   let client_state =
@@ -235,10 +235,6 @@ let sexp_of_t t =
   let printable_t = { client_state; server_state; read_producer; read_consumer;
     write_producer; write_consumer; remote_domid; remote_port; } in
   sexp_of_printable_t printable_t
-
-let t_of_sexp sexp =
-  let printable_t = printable_t_of_sexp sexp in
-  failwith "Not implemented"  
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)
@@ -377,7 +373,7 @@ let server ~domid ~port ~read_size ~write_size =
 
   (* Allocate and initialise the shared page *)
   let shr_shr = M.share ~domid ~npages:1 ~rw:true in
-  let v = Cstruct.of_bigarray shr_shr.M.mapping in
+  let v = Cstruct.of_bigarray (M.buf_of_share shr_shr) in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -415,30 +411,30 @@ let server ~domid ~port ~read_size ~write_size =
   | Offset2048 -> None, Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048)
   | External n ->
     let share = M.share ~domid ~npages:(1 lsl n) ~rw:true in
-    let pages = share.M.mapping in
+    let pages = M.buf_of_share share in
     Some share, Cstruct.of_bigarray pages in
 
   let read_shr, read_buf = allocate_buffer_locations read_l in
   let write_shr, write_buf = allocate_buffer_locations write_l in
-  let nb_read_pages = (match read_shr with None -> 0 | Some shr -> List.length shr.M.grants) in
+  let nb_read_pages = match read_shr with None -> 0 | Some shr -> List.length (M.grants_of_share shr) in
 
   (* Write the gntrefs to the shared page. Ordering is left, right. *)
   List.iteri
     (fun i ref ->
        Cstruct.LE.set_uint32 v (sizeof_vchan_interface+i*4) (M.int32_of_grant ref))
-    (match read_shr with None -> [] | Some shr -> shr.M.grants);
+    (match read_shr with None -> [] | Some shr -> M.grants_of_share shr);
 
   List.iteri
     (fun i ref ->
        Cstruct.LE.set_uint32 v (sizeof_vchan_interface+(i+nb_read_pages)*4)
          (M.int32_of_grant ref))
-    (match write_shr with None -> [] | Some shr -> shr.M.grants);
+    (match write_shr with None -> [] | Some shr -> M.grants_of_share shr);
 
   (* Allocate the event channel *)
   let unbound_port, evtchn = E.listen domid in
 
   (* Write the config to XenStore *)
-  let ring_ref = shr_shr.M.grants |> List.hd |> M.int32_of_grant |> Int32.to_string in
+  let ring_ref = M.grants_of_share shr_shr |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
   C.write ~client_domid:domid ~port { C.ring_ref; event_channel = E.string_of_port unbound_port }
   >>= fun () -> 

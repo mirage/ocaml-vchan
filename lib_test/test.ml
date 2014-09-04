@@ -46,15 +46,21 @@ module Config = struct
 end
 
 module Memory = struct
-  type grant = int32
+  type grant = int32 with sexp
 
   let grant_of_int32 x = x
   let int32_of_grant x = x
 
+  type page = Io_page.t
+  let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
+
   type share = {
     grants: grant list;
-    mapping: Io_page.t;
-  }
+    mapping: page;
+  } with sexp_of
+
+  let grants_of_share x = x.grants
+  let buf_of_share x = x.mapping
 
   let get =
     let g = ref Int32.zero in
@@ -81,16 +87,21 @@ module Memory = struct
     List.iter (fun grant -> Hashtbl.remove individual_pages grant) share.grants;
     Hashtbl.remove big_mapping (List.hd share.grants)
 
-  type mapping = Io_page.t
+  type mapping = {
+    mapping: page;
+    grants: (int * int32) list;
+  } with sexp_of
 
-  let buf_of_mapping x = x
+  let buf_of_mapping x = x.mapping
 
-  let map ~domid:_ ~grant ~rw:_ =
-    Hashtbl.find individual_pages grant
+  let map ~domid ~grant ~rw:_ =
+    let mapping = Hashtbl.find individual_pages grant in
+    { mapping; grants = [ domid, grant ] }
 
   let mapv ~grants ~rw:_ =
     let first = snd (List.hd grants) in
-    Hashtbl.find big_mapping first
+    let mapping = Hashtbl.find big_mapping first in
+    { mapping; grants }
 
   let unmap _ = ()
 end
@@ -98,19 +109,19 @@ end
 module Events = struct
   open Lwt
 
-  type port = int
+  type port = int with sexp_of
 
   let port_of_string x = `Ok (int_of_string x)
   let string_of_port = string_of_int
 
-  type channel = int
+  type channel = int with sexp_of
   let get =
     let g = ref 0 in
     fun () ->
       incr g;
       !g - 1
 
-  type event = int
+  type event = int with sexp_of
   let initial = 0
 
   let channels = Array.create 1024 0

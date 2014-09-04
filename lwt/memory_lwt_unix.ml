@@ -13,16 +13,23 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Sexplib.Std
 
-type grant = int32
+type grant = int32 with sexp
 
 let grant_of_int32 x = x
 let int32_of_grant x = x
 
+type page = Io_page.t
+let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
+
 type share = {
   grants: grant list;
-  mapping: Io_page.t;
-}
+  mapping: page;
+} with sexp_of
+
+let grants_of_share x = x.grants
+let buf_of_share x = x.mapping
 
 let gntshr_interface_open =
   let cache = ref None in
@@ -52,18 +59,26 @@ let gnttab_interface_open =
     i
   | Some i -> i
 
-type mapping = Gnt.Gnttab.Local_mapping.t
+type page' = Gnt.Gnttab.Local_mapping.t
+let sexp_of_page' = sexp_of_page
 
-let buf_of_mapping = Gnt.Gnttab.Local_mapping.to_buf
+type mapping = {
+  mapping: page';
+  grants: (int * int32) list;
+} with sexp_of
+
+let buf_of_mapping m = Gnt.Gnttab.Local_mapping.to_buf m.mapping
 
 let map ~domid ~grant ~rw =
   let i = gnttab_interface_open () in
-  Gnt.Gnttab.map_exn i { Gnt.Gnttab.domid; ref = Int32.to_int grant } rw
+  let mapping = Gnt.Gnttab.map_exn i { Gnt.Gnttab.domid; ref = Int32.to_int grant } rw in
+  { mapping; grants = [ domid, grant ] }
 
 let mapv ~grants ~rw =
   let i = gnttab_interface_open () in
-  Gnt.Gnttab.mapv_exn i (List.map (fun (domid, gntref) -> { Gnt.Gnttab.domid; ref = Int32.to_int gntref }) grants) rw
+  let mapping = Gnt.Gnttab.mapv_exn i (List.map (fun (domid, gntref) -> { Gnt.Gnttab.domid; ref = Int32.to_int gntref }) grants) rw in
+  { mapping; grants }
 
 let unmap m =
   let i = gnttab_interface_open () in
-  Gnt.Gnttab.unmap_exn i m
+  Gnt.Gnttab.unmap_exn i m.mapping
