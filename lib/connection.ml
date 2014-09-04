@@ -84,6 +84,7 @@ type buffer_location =
   | Offset1024      (* 1024-byte ring at offset 1024 in shared page *)
   | Offset2048      (* 2048-byte ring at offset 2048 in shared page *)
   | External of int (* 2 ^^ x pages in use *)
+with sexp
 
 let length_available_at_buffer_location = function
   | Offset1024 -> 1024
@@ -213,14 +214,18 @@ let rd_ring_size vch = match vch.role with
 (* A convenient wrapper to enhance the pretty-printing *)
 type printable_t = {
   role: role;
+  left_order: buffer_location option;
+  right_order: buffer_location option;
   remote_domid: int;
   remote_port: Port.t;
   client_state: state option;
   server_state: state option;
   read_producer: int32;
   read_consumer: int32;
+  read: string;
   write_producer: int32;
   write_consumer: int32;
+  write: string;
   ack_up_to: int;
 } with sexp_of
 
@@ -232,16 +237,25 @@ let sexp_of_t (t: t) =
   let server_state =
     match state_of_live (get_vchan_interface_srv_live t.shared_page)
     with Ok st -> Some st | _ -> None in
+  let left_order =
+    match buffer_location_of_order (get_vchan_interface_left_order t.shared_page)
+    with Ok x -> Some x | _ -> None in
+  let right_order =
+    match buffer_location_of_order (get_vchan_interface_right_order t.shared_page)
+    with Ok x -> Some x | _ -> None in
   let read_producer = rd_prod t in
   let read_consumer = rd_cons t in
+  let read = Cstruct.to_string t.read in
   let write_producer = wr_prod t in
   let write_consumer = wr_cons t in
+  let write = Cstruct.to_string t.write in
   let remote_domid = t.remote_domid in
   let remote_port = t.remote_port in
   let ack_up_to = t.ack_up_to in
   let printable_t = {
-    role; client_state; server_state; read_producer; read_consumer;
-    write_producer; write_consumer; remote_domid; remote_port;
+    role; left_order; right_order;
+    client_state; server_state; read_producer; read_consumer; read;
+    write_producer; write_consumer; write; remote_domid; remote_port;
     ack_up_to;
   } in
   sexp_of_printable_t printable_t
