@@ -123,6 +123,7 @@ type server_params =
     read_shr: M.share option;
     write_shr: M.share option
   }
+with sexp_of
 
 type client_params =
   {
@@ -130,12 +131,14 @@ type client_params =
     read_map: M.mapping option;
     write_map: M.mapping option
   }
+with sexp_of
 
 (* Vchan peers are explicitly client or servers *)
 type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
+with sexp_of
 
 (* The state of a single vchan peer *)
 type t = {
@@ -209,6 +212,7 @@ let rd_ring_size vch = match vch.role with
 
 (* A convenient wrapper to enhance the pretty-printing *)
 type printable_t = {
+  role: role;
   remote_domid: int;
   remote_port: Port.t;
   client_state: state option;
@@ -217,9 +221,11 @@ type printable_t = {
   read_consumer: int32;
   write_producer: int32;
   write_consumer: int32;
+  ack_up_to: int;
 } with sexp_of
 
-let sexp_of_t t =
+let sexp_of_t (t: t) =
+  let role = t.role in
   let client_state =
     match state_of_live (get_vchan_interface_cli_live t.shared_page)
     with Ok st -> Some st | _ -> None in
@@ -232,20 +238,24 @@ let sexp_of_t t =
   let write_consumer = wr_cons t in
   let remote_domid = t.remote_domid in
   let remote_port = t.remote_port in
-  let printable_t = { client_state; server_state; read_producer; read_consumer;
-    write_producer; write_consumer; remote_domid; remote_port; } in
+  let ack_up_to = t.ack_up_to in
+  let printable_t = {
+    role; client_state; server_state; read_producer; read_consumer;
+    write_producer; write_consumer; remote_domid; remote_port;
+    ack_up_to;
+  } in
   sexp_of_printable_t printable_t
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)
-let request_notify vch rdwr =
+let request_notify (vch: t) rdwr =
   let open Cstruct in
   (* This should be correct: client -> srv_notify | server -> cli_notify *)
   let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
   i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr))
   (*; Xenctrl.xen_mb ()*)
 
-let send_notify vch rdwr =
+let send_notify (vch: t) rdwr =
   let open Cstruct in
   (*Xenctrl.xen_mb ();*)
   (* This should be correct: client -> cli_notify | server -> srv_notify *)
@@ -256,16 +266,16 @@ let send_notify vch rdwr =
     atomic_fetch_and vch.shared_page.buffer idx (lnot bit) in
   if prev land bit <> 0 then E.send vch.evtchn
 
-let fast_get_data_ready vch request =
+let fast_get_data_ready (vch: t) request =
   let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
   if ready >= request then ready else
     (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch |> to_int))
 
-let data_ready vch =
+let data_ready (vch: t) =
   request_notify vch Write;
   Int32.(rd_prod vch - rd_cons vch |> to_int)
 
-let fast_get_buffer_space vch request =
+let fast_get_buffer_space (vch: t) request =
   let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int) in
   if ready > request then ready else
     (
@@ -273,7 +283,7 @@ let fast_get_buffer_space vch request =
       wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
     )
 
-let buffer_space vch =
+let buffer_space (vch: t) =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
@@ -540,7 +550,7 @@ let client ~domid ~port =
   let remote_port = port and remote_domid = domid in
   Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
 
-let close vch =
+let close (vch: t) =
   match vch.role with
   | Client { shr_map; read_map; write_map } ->
     set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
