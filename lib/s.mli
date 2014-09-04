@@ -19,7 +19,7 @@ module type CONFIGURATION = sig
   type t = {
     ring_ref: string;
     event_channel: string;
-  }
+  } with sexp
 
   val write:
      client_domid:int -> port:Port.t

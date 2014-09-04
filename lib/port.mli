@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type t
+type t with sexp
 
 val of_string: string -> [ `Ok of t | `Error of string ]
 

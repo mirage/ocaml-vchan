@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Sexplib.Std
 
 module Config = struct
   open Lwt
@@ -20,7 +21,7 @@ module Config = struct
   type t = {
     ring_ref: string;
     event_channel: string;
-  }
+  } with sexp
 
   let tbl: (Vchan.Port.t, t) Hashtbl.t = Hashtbl.create 16
 

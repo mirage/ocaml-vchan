@@ -155,6 +155,8 @@
 <lib/connection.mli>: pkg_cstruct.syntax, pkg_sexplib.syntax, syntax_camlp4o
 <lib/xenstore.ml>: pkg_cstruct.syntax, pkg_lwt.syntax, pkg_sexplib.syntax
 <lib/xenstore.mli>: pkg_cstruct.syntax, pkg_sexplib.syntax, syntax_camlp4o
+<lib/port.ml>: pkg_sexplib.syntax
+<lib/port.mli>: pkg_sexplib.syntax
 <lib/s.mli>: pkg_sexplib.syntax, syntax_camlp4o
 <lib>: include
 true: annot

@@ -209,14 +209,31 @@ let rd_ring_size vch = match vch.role with
 
 (* A convenient wrapper to enhance the pretty-printing *)
 type printable_t = {
+  remote_domid: int;
+  remote_port: Port.t;
   client_state: state option;
+  server_state: state option;
+  read_producer: int32;
+  read_consumer: int32;
+  write_producer: int32;
+  write_consumer: int32;
 } with sexp
 
 let sexp_of_t t =
   let client_state =
     match state_of_live (get_vchan_interface_cli_live t.shared_page)
     with Ok st -> Some st | _ -> None in
-  let printable_t = { client_state } in
+  let server_state =
+    match state_of_live (get_vchan_interface_srv_live t.shared_page)
+    with Ok st -> Some st | _ -> None in
+  let read_producer = rd_prod t in
+  let read_consumer = rd_cons t in
+  let write_producer = wr_prod t in
+  let write_consumer = wr_cons t in
+  let remote_domid = t.remote_domid in
+  let remote_port = t.remote_port in
+  let printable_t = { client_state; server_state; read_producer; read_consumer;
+    write_producer; write_consumer; remote_domid; remote_port; } in
   sexp_of_printable_t printable_t
 
 let t_of_sexp sexp =

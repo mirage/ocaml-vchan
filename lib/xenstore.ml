@@ -14,13 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Lwt
+open Sexplib.Std
 
 module Make(Xs: Xs_client_lwt.S) = struct
 
   type t = {
     ring_ref: string;
     event_channel: string;
-  }
+  } with sexp
 
   let write ~client_domid ~port t =
     Xs.make ()

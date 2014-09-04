@@ -13,8 +13,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Sexplib.Std
 
-type t = string
+type t = string with sexp
 
 let of_string x =
   let valid_char = function
