@@ -174,6 +174,21 @@ let port = match Vchan.Port.of_string "test" with
 
 open Lwt
 
+let interesting_buffer_sizes =
+  (* These are the cases which we know trigger different behaviour *)
+  let core = [
+    1024, 1024;
+    1024, 2048;
+    2048, 2048;
+    4096, 4096;
+  ] in
+  let all = core in
+  (* and the same again, flipped *)
+  let all = all @ (List.map (fun (x, y) -> y, x) all) in
+  (* and the same again, off-by-one *)
+  let all = all @ (List.map (fun (x, y) -> x-1, y-1) all) in
+  all
+
 let test_connect () =
   let server_t = V.server ~domid:1 ~port ~read_size:1024 ~write_size:1024 in
   let client_t = V.client ~domid:0 ~port in
@@ -195,21 +210,26 @@ let cstruct_of_string s =
   cstr
 let string_of_cstruct c = String.escaped (Cstruct.to_string c)
 
-let test_write_read () =
-  let server_t = V.server ~domid:1 ~port ~read_size:1024 ~write_size:1024 in
-  let client_t = V.client ~domid:0 ~port in
-  server_t >>= fun server ->
-  client_t >>= fun client ->
-  V.write server (cstruct_of_string "hello") >>|= fun () ->
-  V.read client >>|= fun buf ->
-  try 
-    assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
-    V.close client >>= fun () ->
-    V.close server
-  with e ->
-    Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-    Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
-    raise e
+let test_write_read (read_size, write_size) =
+  Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
+  >:: (fun () ->
+    Lwt_main.run (
+      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
+      let client_t = V.client ~domid:0 ~port in
+      server_t >>= fun server ->
+      client_t >>= fun client ->
+      V.write server (cstruct_of_string "hello") >>|= fun () ->
+      V.read client >>|= fun buf ->
+      try 
+        assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+        V.close client >>= fun () ->
+        V.close server
+      with e ->
+        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
+        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+        raise e
+    )
+  )
 
 let _ =
   let verbose = ref false in
@@ -220,7 +240,7 @@ let _ =
 
   let suite = "vchan" >::: [
     "connect" >:: (fun () -> Lwt_main.run (test_connect ()));
-    "write_read" >:: (fun () -> Lwt_main.run (test_write_read ()));
+    "write_read" >::: (List.map test_write_read interesting_buffer_sizes);
   ] in
   run_test_tt ~verbose:!verbose suite
 
