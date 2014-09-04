@@ -30,7 +30,12 @@ Executable test
   CompiledObject: best
   Path: lib_test
   MainIs: test.ml
-  BuildDepends: cmdliner, lwt, vchan, vchan.lwt
+  BuildDepends: cmdliner, lwt, vchan, vchan.lwt, oUnit
+
+Test core_test
+  Run$:               flag(tests)
+  Command:            $test
+  WorkingDirectory:   lib_test
 
 Executable xencat
   Install: false
