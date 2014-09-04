@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open S
-
+open Sexplib.Std
 open Lwt
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
@@ -206,6 +206,22 @@ let wr_ring_size vch = match vch.role with
 let rd_ring_size vch = match vch.role with
   | Client _ -> 1 lsl get_ro vch.shared_page
   | Server _ -> 1 lsl get_lo vch.shared_page
+
+(* A convenient wrapper to enhance the pretty-printing *)
+type printable_t = {
+  client_state: state option;
+} with sexp
+
+let sexp_of_t t =
+  let client_state =
+    match state_of_live (get_vchan_interface_cli_live t.shared_page)
+    with Ok st -> Some st | _ -> None in
+  let printable_t = { client_state } in
+  sexp_of_printable_t printable_t
+
+let t_of_sexp sexp =
+  let printable_t = printable_t_of_sexp sexp in
+  failwith "Not implemented"  
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)

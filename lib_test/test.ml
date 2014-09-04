@@ -193,9 +193,14 @@ let test_write_read () =
   client_t >>= fun client ->
   V.write server (cstruct_of_string "hello") >>|= fun () ->
   V.read client >>|= fun buf ->
-  assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
-  V.close client >>= fun () ->
-  V.close server
+  try 
+    assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+    V.close client >>= fun () ->
+    V.close server
+  with e ->
+    Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
+    Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+    raise e
 
 let _ =
   let verbose = ref false in

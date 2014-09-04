@@ -110,7 +110,7 @@ module type EVENTS = sig
 end
 
 module type S = sig
-  type t
+  type t with sexp
   (** Type of a vchan handler. *)
 
   type error = [
