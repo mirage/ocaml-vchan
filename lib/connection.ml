@@ -427,8 +427,8 @@ let server ~domid ~port ~read_size ~write_size =
   | Offset2048, Offset2048 -> Offset2048, External 0
   | n                      -> n in
 
-  set_vchan_interface_right_order v (order_of_buffer_location read_l);
-  set_vchan_interface_left_order v (order_of_buffer_location write_l);
+  set_vchan_interface_left_order v (order_of_buffer_location read_l);
+  set_vchan_interface_right_order v (order_of_buffer_location write_l);
 
   let allocate_buffer_locations = function
   | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
