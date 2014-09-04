@@ -173,8 +173,31 @@ let test_connect () =
   V.close client >>= fun () ->
   V.close server
 
+let (>>|=) m f = m >>= function
+| `Ok x -> f x
+| `Error (`Unknown x) -> fail (Failure x)
+| `Eof -> fail (Failure "EOF")
+
+open OUnit
+
+let cstruct_of_string s =
+  let cstr = Cstruct.create (String.length s) in
+  Cstruct.blit_from_string s 0 cstr 0 (String.length s);
+  cstr
+let string_of_cstruct c = String.escaped (Cstruct.to_string c)
+
+let test_write_read () =
+  let server_t = V.server ~domid:1 ~port ~read_size:1024 ~write_size:1024 in
+  let client_t = V.client ~domid:0 ~port in
+  server_t >>= fun server ->
+  client_t >>= fun client ->
+  V.write server (cstruct_of_string "hello") >>|= fun () ->
+  V.read client >>|= fun buf ->
+  assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+  V.close client >>= fun () ->
+  V.close server
+
 let _ =
-  let open OUnit in
   let verbose = ref false in
   Arg.parse [
     "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
@@ -182,7 +205,8 @@ let _ =
     "Test vchan protocol code";
 
   let suite = "vchan" >::: [
-    "connect" >:: (fun () -> Lwt_main.run (test_connect ()))
+    "connect" >:: (fun () -> Lwt_main.run (test_connect ()));
+    "write_read" >:: (fun () -> Lwt_main.run (test_write_read ()));
   ] in
   run_test_tt ~verbose:!verbose suite
 
