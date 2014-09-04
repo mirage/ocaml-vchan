@@ -113,14 +113,6 @@ module type S = sig
   type t
   (** Type of a vchan handler. *)
 
-  (** Type of the state of a connection between a vchan client and
-      server. *)
-  type state =
-    | Exited (** when one side has called [close] or crashed *)
-    | Connected (** when both sides are open *)
-    | WaitingForConnection (** (server only) where no client has yet connected *)
-  with sexp
-
   type error = [
     `Unknown of string
   ]
@@ -146,15 +138,4 @@ module type S = sig
     and  type error := error
     and  type 'a io = 'a Lwt.t
     and  type buffer = Cstruct.t
-
-  val state : t -> state
-  (** [state vch] is the state of a vchan connection. *)
-
-  val data_ready : t -> int
-  (** [data_ready vch] is the amount of data ready to be read on [vch],
-      in bytes. *)
-
-  val buffer_space : t -> int
-  (** [buffer_space vch] is the amount of data it is currently possible
-      to send on [vch]. *)
 end
