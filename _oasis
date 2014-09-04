@@ -8,6 +8,10 @@ Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 OCamlVersion: >= 4.00
 
+Flag xenctrl
+  Description:        build Unix userspace implementation and tools
+  Default:            false
+
 Library vchan
   Pack:               true
   CompiledObject:     best
@@ -18,6 +22,7 @@ Library vchan
   CSources:           vchan_stubs.c
 
 Library vchan_lwt_unix
+  Build$:             flag(xenctrl)
   CompiledObject:     best
   Path:               lwt
   Findlibname:        lwt
@@ -38,6 +43,7 @@ Test core_test
   WorkingDirectory:   lib_test
 
 Executable xencat
+  Build$:             flag(xenctrl)
   Install: false
   CompiledObject: best
   Path: cli
