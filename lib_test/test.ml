@@ -124,7 +124,7 @@ module Events = struct
   type event = int with sexp_of
   let initial = 0
 
-  let channels = Array.create 1024 0
+  let channels = Array.make 1024 0
   let c = Lwt_condition.create ()
 
   let rec recv channel event =
@@ -134,7 +134,7 @@ module Events = struct
       Lwt_condition.wait c >>= fun () ->
       recv channel event
 
-  let connected_to = Array.create 1024 (-1)
+  let connected_to = Array.make 1024 (-1)
 
   let send channel =
     let listening = connected_to.(channel) in
