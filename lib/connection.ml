@@ -80,38 +80,6 @@ type ('a, 'b) result =
   | Ok of 'a
   | Error of 'b
 
-type buffer_location =
-  | Offset1024      (* 1024-byte ring at offset 1024 in shared page *)
-  | Offset2048      (* 2048-byte ring at offset 2048 in shared page *)
-  | External of int (* 2 ^^ x pages in use *)
-with sexp
-
-let length_available_at_buffer_location = function
-  | Offset1024 -> 1024
-  | Offset2048 -> 2048
-  | External x -> 1 lsl (x + 12)
-
-(* Any more than (External 8) will generate too many grants to fit
-   in the page, if both sides attempt it. *)
-let max_buffer_location = External 8
-
-let legal_buffer_locations = [
-    Offset1024; Offset2048;
-    External 0; External 1; External 2; External 3; External 4;
-    External 5; External 6; External 7; External 8
-]
-
-let buffer_location_of_order = function
-  | 10 -> Ok Offset1024
-  | 11 -> Ok Offset2048
-  | n when n >= 12 -> Ok (External (n - 12))
-  | x -> Error (`Bad_order x)
-
-let order_of_buffer_location = function
-  | Offset1024 -> 10
-  | Offset2048 -> 11
-  | External n -> n + 12
-
 type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 2 | Write -> 1
@@ -214,8 +182,8 @@ let rd_ring_size vch = match vch.role with
 (* A convenient wrapper to enhance the pretty-printing *)
 type printable_t = {
   role: role;
-  left_order: buffer_location option;
-  right_order: buffer_location option;
+  left_order: Location.t option;
+  right_order: Location.t option;
   remote_domid: int;
   remote_port: Port.t;
   client_state: state option;
@@ -238,11 +206,11 @@ let sexp_of_t (t: t) =
     match state_of_live (get_vchan_interface_srv_live t.shared_page)
     with Ok st -> Some st | _ -> None in
   let left_order =
-    match buffer_location_of_order (get_vchan_interface_left_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
+    match Location.of_order (get_vchan_interface_left_order t.shared_page)
+    with `Ok x -> Some x | _ -> None in
   let right_order =
-    match buffer_location_of_order (get_vchan_interface_right_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
+    match Location.of_order (get_vchan_interface_right_order t.shared_page)
+    with `Ok x -> Some x | _ -> None in
   let read_producer = rd_prod t in
   let read_consumer = rd_cons t in
   let read = Cstruct.to_string t.read in
@@ -407,39 +375,21 @@ let server ~domid ~port ~read_size ~write_size =
   set_vchan_interface_cli_notify v (bit_of_read_write Write);
   set_vchan_interface_srv_notify v 0;
 
-  (* Initialise the payload buffers *)
-  let suitable_locations requested_size =
-    let locs = List.filter
-      (fun bl -> length_available_at_buffer_location bl >= requested_size)
-      legal_buffer_locations in
-    match locs with
-      | []     -> max_buffer_location
-      | h::t   -> h in
-  (* Use the smallest amount of buffer space for read and write buffers.
-     Since each of 'Offset1024' and 'Offset2048' refer to slots in the original shared page,
-     read or write may use them but not both at once. If the requested size
-     is very large, we'll use our maximum amount of buffer space rather than fail. *)
-  let read_l, write_l = match suitable_locations read_size, suitable_locations write_size with
-  (* avoid clashes for the slots in the original page *)
-  | Offset1024, Offset1024 -> Offset1024, Offset2048
-  | Offset2048, Offset1024 -> Offset2048, Offset1024
-  | Offset1024, Offset2048 -> Offset1024, Offset2048
-  | Offset2048, Offset2048 -> Offset2048, External 0
-  | n                      -> n in
+  let read_l, write_l = Location.of_lengths read_size write_size in
 
-  set_vchan_interface_left_order v (order_of_buffer_location read_l);
-  set_vchan_interface_right_order v (order_of_buffer_location write_l);
+  set_vchan_interface_left_order v (Location.to_order read_l);
+  set_vchan_interface_right_order v (Location.to_order write_l);
 
-  let allocate_buffer_locations = function
-  | Offset1024 -> None, Cstruct.sub v 1024 (length_available_at_buffer_location Offset1024)
-  | Offset2048 -> None, Cstruct.sub v 2048 (length_available_at_buffer_location Offset2048)
-  | External n ->
+  let allocate_locations l = match l with
+  | Location.Within_shared_page offset ->
+    None, Cstruct.sub v (Location.to_offset offset) (Location.to_length l)
+  | Location.External n ->
     let share = M.share ~domid ~npages:(1 lsl n) ~rw:true in
     let pages = M.buf_of_share share in
     Some share, Cstruct.of_bigarray pages in
 
-  let read_shr, read_buf = allocate_buffer_locations read_l in
-  let write_shr, write_buf = allocate_buffer_locations write_l in
+  let read_shr, read_buf = allocate_locations read_l in
+  let write_shr, write_buf = allocate_locations write_l in
   let nb_read_pages = match read_shr with None -> 0 | Some shr -> List.length (M.grants_of_share shr) in
 
   (* Write the gntrefs to the shared page. Ordering is left, right. *)
@@ -480,89 +430,65 @@ let server ~domid ~port ~read_size ~write_size =
 
   return vch
 
+let (>>|=) m f = match m with
+| `Ok x -> f x
+| `Error m -> fail (Failure m)
+
 let client ~domid ~port =
   C.read ~server_domid:domid ~port
   >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
-  let gntref = int_of_string gntref in
-  (match E.port_of_string evtchn with
-   | `Ok x -> return x
-   | `Error m -> fail (Failure m)
-  ) >>= fun unbound_port ->
+  E.port_of_string evtchn
+  >>|= fun unbound_port ->
  
   (* Map the vchan interface page *)
-  let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
-  let vchan_intf_cstruct = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
+  let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_string gntref)) ~rw:true in
+  let v = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
 
-  (* Resizing vchan_intf_cstruct *)
-  let nb_left_pages = 1 lsl (get_lo vchan_intf_cstruct - 12) in
-  let nb_right_pages = 1 lsl (get_ro vchan_intf_cstruct - 12) in
-  let vchan_intf_cstruct = Cstruct.sub vchan_intf_cstruct 0
-      (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
-
-  (* Set initial values in vchan_intf *)
-  set_vchan_interface_cli_live vchan_intf_cstruct (live_of_state Connected);
-  set_vchan_interface_srv_notify vchan_intf_cstruct (bit_of_read_write Write);
+  Location.of_order (get_lo v)
+  >>|= fun lo ->
+  Location.of_order (get_ro v)
+  >>|= fun ro ->
+  let nb_left_pages = Location.to_length lo / 4096 in
+  let nb_right_pages = Location.to_length ro / 4096 in
+  
+  (* Ignore trailing junk in v *)
+  let v = Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
 
   (* Bind the event channel *)
   let evtchn = E.connect domid unbound_port in
 
-  (* Map the rings *)
-  let rings_of_vchan_intf v =
-    let lo = get_lo v in
-    let ro = get_ro v in
-    match lo, ro with
-      | 10, 10 -> (None, Cstruct.sub v 1024 1024), (None, Cstruct.sub v 2048 1024)
-      | 10, 11 -> (None, Cstruct.sub v 1024 1024), (None, Cstruct.sub v 2048 2048)
-      | 11, 10 -> (None, Cstruct.sub v 2048 2048), (None, Cstruct.sub v 1024 1024)
-      | 11, 11 ->
-        let gntref =
-          (Cstruct.LE.get_uint32 vchan_intf_cstruct sizeof_vchan_interface |> Int32.to_int) in
-        let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_int gntref)) ~rw:true in
-        (None, Cstruct.sub v 2048 2048),
-        (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping))
+  (* Unmarshal grant references into a form suitable for M.mapv.
+     Note: we only call mapv on non-empty lists *)
+  let unmarshal offset nb =
+    Array.init nb
+      (fun i ->
+        (offset + i * 4)
+        |> Cstruct.LE.get_uint32 v
+        |> M.grant_of_int32
+      )
+   |> Array.to_list
+   |> List.map (fun x -> domid, x) in
+  let lgrants = unmarshal sizeof_vchan_interface nb_left_pages in
+  let rgrants = unmarshal (sizeof_vchan_interface + nb_left_pages*4) nb_right_pages in
 
-      | n, m when n > 9 && m > 9 ->
-        let lgrants = Array.make nb_left_pages 0 in
-        let rgrants = Array.make nb_right_pages 0 in
-
-        (* Reading grant refs from the shared page and load them into
-           the arrays just created. *)
-        let lgrants =
-          for i = 0 to nb_left_pages - 1 do
-            lgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
-                (sizeof_vchan_interface + i*4) |> Int32.to_int
-          done;
-          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
-            (Array.to_list lgrants) in
-        let rgrants =
-          for i = 0 to nb_right_pages - 1 do
-            rgrants.(i) <- Cstruct.LE.get_uint32 vchan_intf_cstruct
-                (sizeof_vchan_interface + nb_left_pages*4 + i*4) |> Int32.to_int
-          done;
-          List.map (fun ref -> domid, M.grant_of_int32 (Int32.of_int ref))
-            (Array.to_list rgrants) in
-
-        (* Use the grant refs arrays to map left and right pages. *)
-        let lgrants_map =
-          let mapping = M.mapv ~grants:lgrants ~rw:true in
-          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
-
-        let rgrants_map =
-          let mapping = M.mapv ~grants:rgrants ~rw:true in
-          (Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping)) in
-        lgrants_map, rgrants_map
-
-      | n, m -> failwith (Printf.sprintf "Invalid orders: left = %d, right = %d" lo ro) in
-
-  let (w_map, w_buf), (r_map, r_buf) = rings_of_vchan_intf vchan_intf_cstruct in
+  let map_locations grants l = match l with
+  | Location.Within_shared_page offset ->
+    None, Cstruct.sub v (Location.to_offset offset) (Location.to_length l)
+  | Location.External n ->
+    let mapping = M.mapv ~grants ~rw:true in
+    Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping) in
+  let w_map, w_buf = map_locations lgrants lo in
+  let r_map, r_buf = map_locations rgrants ro in
 
   (* Signal the server so it knows we have connected *)
+  set_vchan_interface_cli_live v (live_of_state Connected);
+  set_vchan_interface_srv_notify v (bit_of_read_write Write);
   E.send evtchn;
 
   let role = Client { shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
   let remote_port = port and remote_domid = domid in
-  Lwt.return { remote_port; remote_domid; shared_page=vchan_intf_cstruct; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
+  Lwt.return { remote_port; remote_domid; shared_page=v; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
 
 let close (vch: t) =
   match vch.role with
