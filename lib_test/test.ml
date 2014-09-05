@@ -303,6 +303,28 @@ let test_write_read (read_size, write_size) =
     assert_cleaned_up ()
   )
 
+let test_read_write (read_size, write_size) =
+  Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
+  >:: (fun () ->
+    Lwt_main.run (
+      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
+      let client_t = V.client ~domid:0 ~port in
+      server_t >>= fun server ->
+      client_t >>= fun client ->
+      let read_t = V.read client in
+      V.write server (cstruct_of_string "hello") >>|= fun () ->
+      read_t >>|= fun buf ->
+      try 
+        assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+        V.close client >>= fun () ->
+        V.close server
+      with e ->
+        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
+        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+        raise e
+    );
+    assert_cleaned_up ()
+  )
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -313,6 +335,7 @@ let _ =
   let suite = "vchan" >::: [
     "connect" >::: (List.map test_connect interesting_buffer_sizes);
     "write_read" >::: (List.map test_write_read interesting_buffer_sizes);
+    "read_write" >::: (List.map test_read_write interesting_buffer_sizes);
   ] in
   run_test_tt ~verbose:!verbose suite
 
