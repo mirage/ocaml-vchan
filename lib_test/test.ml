@@ -281,24 +281,37 @@ let cstruct_of_string s =
   cstr
 let string_of_cstruct c = String.escaped (Cstruct.to_string c)
 
+let with_connection read_size write_size f =
+  let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
+  let client_t = V.client ~domid:0 ~port in
+  server_t >>= fun server ->
+  client_t >>= fun client ->
+  Lwt.catch
+    (fun () ->
+       f client server >>= fun x ->
+       V.close client >>= fun () ->
+       V.close server >>= fun () ->
+       return x
+    ) (fun e ->
+       Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
+       Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+       fail e
+    )
+
 let test_write_read (read_size, write_size) =
   Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
   >:: (fun () ->
     Lwt_main.run (
-      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
-      let client_t = V.client ~domid:0 ~port in
-      server_t >>= fun server ->
-      client_t >>= fun client ->
-      V.write server (cstruct_of_string "hello") >>|= fun () ->
-      V.read client >>|= fun buf ->
-      try 
-        assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
-        V.close client >>= fun () ->
-        V.close server
-      with e ->
-        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
-        raise e
+      with_connection read_size write_size
+        (fun client server ->
+          V.write server (cstruct_of_string "hello") >>|= fun () ->
+          V.read client >>|= fun buf ->
+          assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+          V.write client (cstruct_of_string "vchan world") >>|= fun () ->
+          V.read server >>|= fun buf ->
+          assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
+          return ()
+        )
     );
     assert_cleaned_up ()
   )
@@ -307,21 +320,14 @@ let test_read_write (read_size, write_size) =
   Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
   >:: (fun () ->
     Lwt_main.run (
-      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
-      let client_t = V.client ~domid:0 ~port in
-      server_t >>= fun server ->
-      client_t >>= fun client ->
-      let read_t = V.read client in
-      V.write server (cstruct_of_string "hello") >>|= fun () ->
-      read_t >>|= fun buf ->
-      try 
-        assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
-        V.close client >>= fun () ->
-        V.close server
-      with e ->
-        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
-        raise e
+      with_connection read_size write_size
+        (fun client server ->
+          let read_t = V.read client in
+          V.write server (cstruct_of_string "hello") >>|= fun () ->
+          read_t >>|= fun buf ->
+          assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+          return ()
+        )
     );
     assert_cleaned_up ()
   )
@@ -329,33 +335,26 @@ let test_read_write (read_size, write_size) =
 
 let test_write_wraps () = Lwt_main.run (
   let size = 4096 in (* guaranteed to be exact via grant refs *)
-  let server_t = V.server ~domid:1 ~port ~read_size:size ~write_size:size in
-  let client_t = V.client ~domid:0 ~port in
-  server_t >>= fun server ->
-  client_t >>= fun client ->
-  (* leave 2 bytes free at the end of the ring *)
-  let ring = Cstruct.create (size - 2) in
-  for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
-  V.write server ring >>|= fun () ->
-          Printf.fprintf stderr "written %d\n%!" (size - 1);
-  V.read client >>|= fun buf ->
-          Printf.fprintf stderr "read %d\n%!" (size - 1);
-  (* writing and reading 1 byte will ensure we have consumed the previous chunk
-     (read doesn't perform a copy, see ack_up_to) *)
-  V.write server (cstruct_of_string "!") >>|= fun () ->
-  V.read client >>|= fun buf ->
-  assert_equal ~printer:(fun x -> x) "!" (string_of_cstruct buf);
-  (* there's 1 byte free before wraparound *)
-  V.write server (cstruct_of_string "hello") >>|= fun () ->
-          Printf.fprintf stderr "written hello\n%!";
-  V.read client >>|= fun buf' ->
-  assert_equal ~printer:(fun x -> x) "h" (string_of_cstruct buf');
-          Printf.fprintf stderr "h\n%!";
-  V.read client >>|= fun buf'' ->
-  assert_equal ~printer:(fun x -> x) "ello" (string_of_cstruct buf'');
-          Printf.fprintf stderr "ello\n%!";
-  V.close client >>= fun () ->
-  V.close server
+  with_connection size size
+    (fun client server ->
+      (* leave 2 bytes free at the end of the ring *)
+      let ring = Cstruct.create (size - 2) in
+      for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
+      V.write server ring >>|= fun () ->
+      V.read client >>|= fun buf ->
+      (* writing and reading 1 byte will ensure we have consumed the previous chunk
+         (read doesn't perform a copy, see ack_up_to) *)
+      V.write server (cstruct_of_string "!") >>|= fun () ->
+      V.read client >>|= fun buf ->
+      assert_equal ~printer:(fun x -> x) "!" (string_of_cstruct buf);
+      (* there's 1 byte free before wraparound *)
+      V.write server (cstruct_of_string "hello") >>|= fun () ->
+      V.read client >>|= fun buf' ->
+      assert_equal ~printer:(fun x -> x) "h" (string_of_cstruct buf');
+      V.read client >>|= fun buf'' ->
+      assert_equal ~printer:(fun x -> x) "ello" (string_of_cstruct buf'');
+      return ()
+    )
 ); assert_cleaned_up ()
 
 let _ =
