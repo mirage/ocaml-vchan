@@ -99,6 +99,10 @@ module Memory = struct
     { mapping; grants = [ domid, grant ] }
 
   let mapv ~grants ~rw:_ =
+    if grants = [] then begin
+      Printf.fprintf stderr "mapv called with empty grant list\n%!";
+      failwith "mapv: empty list"
+    end;
     let first = snd (List.hd grants) in
     let mapping = Hashtbl.find big_mapping first in
     { mapping; grants }
@@ -174,6 +178,12 @@ let port = match Vchan.Port.of_string "test" with
 
 open Lwt
 
+let setify x =
+  let rec loop acc = function
+  | [] -> acc
+  | x :: xs -> loop (if List.mem x acc then acc else x :: acc) xs in
+  loop [] x
+
 let interesting_buffer_sizes =
   (* These are the cases which we know trigger different behaviour *)
   let core = [
@@ -187,22 +197,27 @@ let interesting_buffer_sizes =
   let all = all @ (List.map (fun (x, y) -> y, x) all) in
   (* and the same again, off-by-one *)
   let all = all @ (List.map (fun (x, y) -> x-1, y-1) all) in
-  all
+  setify all
 
-let test_connect () =
-  let server_t = V.server ~domid:1 ~port ~read_size:1024 ~write_size:1024 in
-  let client_t = V.client ~domid:0 ~port in
-  server_t >>= fun server ->
-  client_t >>= fun client ->
-  V.close client >>= fun () ->
-  V.close server
+open OUnit
+
+let test_connect (read_size, write_size) =
+  Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
+  >:: (fun () ->
+    Lwt_main.run (
+      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
+      let client_t = V.client ~domid:0 ~port in
+      server_t >>= fun server ->
+      client_t >>= fun client ->
+      V.close client >>= fun () ->
+      V.close server
+    )
+  )
 
 let (>>|=) m f = m >>= function
 | `Ok x -> f x
 | `Error (`Unknown x) -> fail (Failure x)
 | `Eof -> fail (Failure "EOF")
-
-open OUnit
 
 let cstruct_of_string s =
   let cstr = Cstruct.create (String.length s) in
@@ -239,7 +254,7 @@ let _ =
     "Test vchan protocol code";
 
   let suite = "vchan" >::: [
-    "connect" >:: (fun () -> Lwt_main.run (test_connect ()));
+    "connect" >::: (List.map test_connect interesting_buffer_sizes);
     "write_read" >::: (List.map test_write_read interesting_buffer_sizes);
   ] in
   run_test_tt ~verbose:!verbose suite
