@@ -326,6 +326,10 @@ let test_read_write (read_size, write_size) =
           V.write server (cstruct_of_string "hello") >>|= fun () ->
           read_t >>|= fun buf ->
           assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
+          let read_t = V.read server in
+          V.write client (cstruct_of_string "vchan world") >>|= fun () ->
+          read_t >>|= fun buf ->
+          assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
           return ()
         )
     );
