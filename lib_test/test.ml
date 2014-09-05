@@ -112,6 +112,10 @@ module Memory = struct
 
   let map ~domid ~grant ~rw:_ =
     let mapping = Hashtbl.find individual_pages grant in
+    if Hashtbl.mem currently_mapped grant then begin
+      Printf.fprintf stderr "map: grant %ld is already mapped\n%!" grant;
+      failwith (Printf.sprintf "map: grant %ld is already mapped" grant);
+    end;
     Hashtbl.replace currently_mapped grant ();
     { mapping; grants = [ domid, grant ] }
 
@@ -122,6 +126,10 @@ module Memory = struct
     end;
     let first = snd (List.hd grants) in
     let mapping = Hashtbl.find big_mapping first in
+    if Hashtbl.mem currently_mapped first then begin
+      Printf.fprintf stderr "mapv: grant %ld is already mapped\n%!" first;
+      failwith (Printf.sprintf "mapv: grant %ld is already mapped" first);
+    end;
     Hashtbl.replace currently_mapped first ();
     { mapping; grants }
 
