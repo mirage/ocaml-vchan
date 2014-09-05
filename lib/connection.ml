@@ -499,6 +499,7 @@ let close (vch: t) =
     Opt.iter M.unmap read_map;
     Opt.iter M.unmap write_map;
     M.unmap shr_map;
+    E.close vch.evtchn;
     return ()
 
   | Server { shr_shr; read_shr; write_shr } ->
@@ -512,6 +513,7 @@ let close (vch: t) =
     Opt.iter M.unshare read_shr;
     Opt.iter M.unshare write_shr;
     M.unshare shr_shr;
+    E.close vch.evtchn;
     return ()
 
 end
