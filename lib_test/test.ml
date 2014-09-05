@@ -325,6 +325,39 @@ let test_read_write (read_size, write_size) =
     );
     assert_cleaned_up ()
   )
+
+
+let test_write_wraps () = Lwt_main.run (
+  let size = 4096 in (* guaranteed to be exact via grant refs *)
+  let server_t = V.server ~domid:1 ~port ~read_size:size ~write_size:size in
+  let client_t = V.client ~domid:0 ~port in
+  server_t >>= fun server ->
+  client_t >>= fun client ->
+  (* leave 2 bytes free at the end of the ring *)
+  let ring = Cstruct.create (size - 2) in
+  for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
+  V.write server ring >>|= fun () ->
+          Printf.fprintf stderr "written %d\n%!" (size - 1);
+  V.read client >>|= fun buf ->
+          Printf.fprintf stderr "read %d\n%!" (size - 1);
+  (* writing and reading 1 byte will ensure we have consumed the previous chunk
+     (read doesn't perform a copy, see ack_up_to) *)
+  V.write server (cstruct_of_string "!") >>|= fun () ->
+  V.read client >>|= fun buf ->
+  assert_equal ~printer:(fun x -> x) "!" (string_of_cstruct buf);
+  (* there's 1 byte free before wraparound *)
+  V.write server (cstruct_of_string "hello") >>|= fun () ->
+          Printf.fprintf stderr "written hello\n%!";
+  V.read client >>|= fun buf' ->
+  assert_equal ~printer:(fun x -> x) "h" (string_of_cstruct buf');
+          Printf.fprintf stderr "h\n%!";
+  V.read client >>|= fun buf'' ->
+  assert_equal ~printer:(fun x -> x) "ello" (string_of_cstruct buf'');
+          Printf.fprintf stderr "ello\n%!";
+  V.close client >>= fun () ->
+  V.close server
+); assert_cleaned_up ()
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -336,6 +369,7 @@ let _ =
     "connect" >::: (List.map test_connect interesting_buffer_sizes);
     "write_read" >::: (List.map test_write_read interesting_buffer_sizes);
     "read_write" >::: (List.map test_read_write interesting_buffer_sizes);
+    "test_write_wraps" >:: test_write_wraps;
   ] in
   run_test_tt ~verbose:!verbose suite
 
