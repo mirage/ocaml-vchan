@@ -43,6 +43,12 @@ module Config = struct
   let delete ~client_domid ~port =
     Hashtbl.remove tbl port;
     return ()
+
+  let assert_cleaned_up () =
+    if Hashtbl.length tbl <> 0 then begin
+      Printf.fprintf stderr "Stale config entries in xenstore\n%!";
+      failwith "stale config entries in xenstore";
+    end
 end
 
 module Memory = struct
@@ -83,9 +89,17 @@ module Memory = struct
     Hashtbl.replace big_mapping (List.hd grants) mapping;
     share
 
+  let remove tbl key =
+    if Hashtbl.mem tbl key
+    then Hashtbl.remove tbl key
+    else begin
+      Printf.fprintf stderr "Attempt to remove non-existing mapping\n%!";
+      failwith "Attempt to remove non-existing mapping"
+    end
+
   let unshare share =
-    List.iter (fun grant -> Hashtbl.remove individual_pages grant) share.grants;
-    Hashtbl.remove big_mapping (List.hd share.grants)
+    List.iter (fun grant -> remove individual_pages grant) share.grants;
+    remove big_mapping (List.hd share.grants)
 
   type mapping = {
     mapping: page;
@@ -94,8 +108,11 @@ module Memory = struct
 
   let buf_of_mapping x = x.mapping
 
+  let currently_mapped = Hashtbl.create 16
+
   let map ~domid ~grant ~rw:_ =
     let mapping = Hashtbl.find individual_pages grant in
+    Hashtbl.replace currently_mapped grant ();
     { mapping; grants = [ domid, grant ] }
 
   let mapv ~grants ~rw:_ =
@@ -105,9 +122,27 @@ module Memory = struct
     end;
     let first = snd (List.hd grants) in
     let mapping = Hashtbl.find big_mapping first in
+    Hashtbl.replace currently_mapped first ();
     { mapping; grants }
 
-  let unmap _ = ()
+  let unmap { mapping; grants } =
+    let first = snd (List.hd grants) in
+    if Hashtbl.mem currently_mapped first
+    then Hashtbl.remove currently_mapped first
+    else begin
+      Printf.fprintf stderr "unmap called with already-unmapped grant\n%!";
+      failwith "unmap: already unmapped"
+    end
+
+  let assert_cleaned_up () =
+    if Hashtbl.length currently_mapped <> 0 then begin
+      Printf.fprintf stderr "Some grants are still mapped in\n%!";
+      failwith "some grants are still mapped in"
+    end;
+    if Hashtbl.length big_mapping <> 0 then begin
+      Printf.fprintf stderr "Some grants are still active\n%!";
+      failwith "some grants are still active"
+    end
 end
 
 module Events = struct
@@ -142,6 +177,10 @@ module Events = struct
 
   let send channel =
     let listening = connected_to.(channel) in
+    if listening = -1 then begin
+      Printf.fprintf stderr "send: event channel %d is closed\n%!" channel;
+      failwith (Printf.sprintf "send: event channel %d is closed" channel);
+    end;
     channels.(listening) <- channels.(listening) + 1;
     Lwt_condition.broadcast c ()
 
@@ -157,13 +196,21 @@ module Events = struct
 
   let close port =
     channels.(port) <- 0;
-    let other = connected_to.(port) in
-    if other <> -1 then begin
-      connected_to.(port) <- (-1);
-      connected_to.(other) <- (-1);
-    end
+    connected_to.(port) <- -1
+
+  let assert_cleaned_up () =
+    for i = 0 to Array.length connected_to - 1 do
+      if connected_to.(i) <> (-1) then begin
+        Printf.fprintf stderr "Some event channels are still connected\n%!";
+        failwith "some event channels are still connected"
+      end
+    done
 end
 
+let assert_cleaned_up () =
+  Memory.assert_cleaned_up ();
+  Config.assert_cleaned_up ();
+  Events.assert_cleaned_up ()
 
 module V = Vchan.Connection.Make(Events)(Memory)(Config)
 
@@ -211,7 +258,8 @@ let test_connect (read_size, write_size) =
       client_t >>= fun client ->
       V.close client >>= fun () ->
       V.close server
-    )
+    );
+    assert_cleaned_up ()
   )
 
 let (>>|=) m f = m >>= function
@@ -243,7 +291,8 @@ let test_write_read (read_size, write_size) =
         Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
         Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
         raise e
-    )
+    );
+    assert_cleaned_up ()
   )
 
 let _ =
