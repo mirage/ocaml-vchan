@@ -120,13 +120,14 @@ module type ENDPOINT = sig
   val server :
     domid:int ->
     port:Port.t ->
-    read_size:int ->
-    write_size:int ->
-    t Lwt.t
+    ?read_size:int ->
+    ?write_size:int ->
+    unit -> t Lwt.t
 
   val client :
     domid:int ->
-    port:Port.t -> t Lwt.t
+    port:Port.t ->
+    unit -> t Lwt.t
 
   val close : t -> unit Lwt.t
   (** Close a vchan. This deallocates the vchan and attempts to free

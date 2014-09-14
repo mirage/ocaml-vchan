@@ -106,8 +106,8 @@ let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   | `Error (`Unknown msg) ->
     Lwt.fail (Failure msg)
 
-let open_client ~domid ~port ?(buffer_size = 65536) () =
-  M.client ~domid ~port
+let open_client ~domid ~port ?(buffer_size = 1024) () =
+  M.client ~domid ~port ()
   >>= fun t ->
 
   let close () = M.close t in
@@ -116,9 +116,9 @@ let open_client ~domid ~port ?(buffer_size = 65536) () =
   let oc = Lwt_io.make ~buffer_size ~mode:Lwt_io.output (writer t) in
   return (ic, oc)
 
-let open_server ~domid ~port ?(buffer_size = 65536) () =
+let open_server ~domid ~port ?(buffer_size = 1024) () =
   M.server ~domid ~port
-    ~read_size:buffer_size ~write_size:buffer_size
+    ~read_size:buffer_size ~write_size:buffer_size ()
   >>= fun t ->
 
   let close () = M.close t in

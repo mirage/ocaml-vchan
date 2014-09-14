@@ -354,14 +354,17 @@ let read vch =
   | `Eof -> Lwt.return `Eof
   | `Error m -> Lwt.return (`Error m)
 
-let server ~domid ~port ~read_size ~write_size =
+let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   (* The vchan convention is that the 'server' allocates and
      shares the pages with the 'client'. Note this is the
      reverse of the xen block protocol where the frontend
      (ie the 'client') shares pages with the backend (the
      'server') If we were to re-implement the block protocol
      over vchan, we should therefore make the frontend into
-     the 'server' *)
+     the 'server'.
+     NB the {read,write}_size defaults were chosen for reliability
+     rather than performance. Some Linux kernel versions have
+     difficulty mapping or sharing more than one page. *)
 
   (* Allocate and initialise the shared page *)
   let shr_shr = M.share ~domid ~npages:1 ~rw:true in
@@ -434,7 +437,7 @@ let (>>|=) m f = match m with
 | `Ok x -> f x
 | `Error m -> fail (Failure m)
 
-let client ~domid ~port =
+let client ~domid ~port () =
   C.read ~server_domid:domid ~port
   >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
   E.port_of_string evtchn
