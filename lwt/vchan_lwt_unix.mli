@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module M: Vchan.S.S
+module M: Vchan.S.ENDPOINT
 
 module type Cohttp_IO_S = sig
   type +'a t

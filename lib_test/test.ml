@@ -220,7 +220,7 @@ let assert_cleaned_up () =
   Config.assert_cleaned_up ();
   Events.assert_cleaned_up ()
 
-module V = Vchan.Connection.Make(Events)(Memory)(Config)
+module V = Vchan.Endpoint.Make(Events)(Memory)(Config)
 
 let () =
   let module Check_flow_compatible(F: V1_LWT.FLOW) = struct end in
@@ -260,8 +260,8 @@ let test_connect (read_size, write_size) =
   Printf.sprintf "read_size = %d; write_size = %d" read_size write_size
   >:: (fun () ->
     Lwt_main.run (
-      let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
-      let client_t = V.client ~domid:0 ~port in
+      let server_t = V.server ~domid:1 ~port ~read_size ~write_size () in
+      let client_t = V.client ~domid:0 ~port () in
       server_t >>= fun server ->
       client_t >>= fun client ->
       V.close client >>= fun () ->
@@ -282,8 +282,8 @@ let cstruct_of_string s =
 let string_of_cstruct c = String.escaped (Cstruct.to_string c)
 
 let with_connection read_size write_size f =
-  let server_t = V.server ~domid:1 ~port ~read_size ~write_size in
-  let client_t = V.client ~domid:0 ~port in
+  let server_t = V.server ~domid:1 ~port ~read_size ~write_size () in
+  let client_t = V.client ~domid:0 ~port () in
   server_t >>= fun server ->
   client_t >>= fun client ->
   Lwt.catch
