@@ -220,7 +220,7 @@ let assert_cleaned_up () =
   Config.assert_cleaned_up ();
   Events.assert_cleaned_up ()
 
-module V = Vchan.Connection.Make(Events)(Memory)(Config)
+module V = Vchan.Endpoint.Make(Events)(Memory)(Config)
 
 let () =
   let module Check_flow_compatible(F: V1_LWT.FLOW) = struct end in

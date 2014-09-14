@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ddcaa5c7001d1c9516fea9e151632d31)
+# DO NOT EDIT (digest: db532fc77f119ad95c47b3c5843ecb50)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -15,7 +15,7 @@
 "_darcs": not_hygienic
 # Library vchan
 "lib/vchan.cmxs": use_vchan
-"lib/connection.cmx": for-pack(Vchan)
+"lib/endpoint.cmx": for-pack(Vchan)
 "lib/port.cmx": for-pack(Vchan)
 "lib/xenstore.cmx": for-pack(Vchan)
 "lib/location.cmx": for-pack(Vchan)

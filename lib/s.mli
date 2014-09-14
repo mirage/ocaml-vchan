@@ -109,9 +109,9 @@ module type EVENTS = sig
   (** [close channel] closes this side of an event channel *)
 end
 
-module type S = sig
+module type ENDPOINT = sig
   type t with sexp_of
-  (** Type of a vchan handler. *)
+  (** Type of a vchan endpoint. *)
 
   type error = [
     `Unknown of string

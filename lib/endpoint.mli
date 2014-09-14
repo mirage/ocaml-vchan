@@ -17,4 +17,4 @@
 
 (** Client and server interface for Xen's vchan protocol. *)
 
-module Make(A : S.EVENTS)(M: S.MEMORY)(C: S.CONFIGURATION) : S.S
+module Make(A : S.EVENTS)(M: S.MEMORY)(C: S.CONFIGURATION) : S.ENDPOINT
