@@ -8,5 +8,5 @@ function cleanup {
 trap cleanup EXIT
 
 cp configure.ml $D
-(cd $D; ocamlfind ocamlopt -package "cmdliner,unix" -linkpkg configure.ml -o configure)
+(cd $D; ocamlfind ocamlopt -package "findlib,cmdliner,unix" -linkpkg configure.ml -o configure)
 $D/configure $*

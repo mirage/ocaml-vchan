@@ -13,7 +13,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure --enable-tests $(ENABLE_XENCTRL)
+	@./setup.bin -configure --enable-tests $(ENABLE_XENCTRL) $(ENABLE_XEN)
 
 build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
