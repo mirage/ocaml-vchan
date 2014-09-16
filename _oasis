@@ -12,6 +12,10 @@ Flag xenctrl
   Description:        build Unix userspace implementation and tools
   Default:            false
 
+Flag xen
+  Description:        build Xen kernelspace implementation
+  Default:            false
+
 Library vchan
   Pack:               true
   CompiledObject:     best
@@ -29,6 +33,15 @@ Library vchan_lwt_unix
   Findlibparent:      vchan
   Modules:            Vchan_lwt_unix, Events_lwt_unix, Memory_lwt_unix
   BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-evtchn.unix, xen-evtchn.unix.activations, io-page.unix, xen-gnt, xen-gnt.unix, xenstore, xenstore.client, xenstore_transport, xenstore_transport.lwt, mirage-types.lwt, vchan
+
+Library vchan_xen
+  Build$:             flag(xen)
+  CompiledObject:     best
+  Path:               xen
+  Findlibname:        xen
+  Findlibparent:      vchan
+  Modules:            Vchan_xen, Events_xen, Memory_xen
+  BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-gnt, xenstore, xenstore.client, mirage-xen, mirage-types.lwt, vchan
 
 Executable test
   Install: false
@@ -55,5 +68,5 @@ Document api
   Type: ocamlbuild (0.3)
   BuildTools+: ocamldoc
   XOcamlbuildPath: doc
-  XOcamlbuildModules: Endpoint, S
+  XOcamlbuildModules: Endpoint, S, Port, Location
   Install: false

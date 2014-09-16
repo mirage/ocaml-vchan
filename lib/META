@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7b1fd7bb79f9773172e9918cbce526c8)
+# DO NOT EDIT (digest: bc9677b4a11d9e26fc7cd7761aaeeeaa)
 version = "2.0.0"
 description = "Xen libvchan protocol implementation"
 requires =
@@ -9,6 +9,18 @@ archive(byte, plugin) = "vchan.cma"
 archive(native) = "vchan.cmxa"
 archive(native, plugin) = "vchan.cmxs"
 exists_if = "vchan.cma"
+package "xen" (
+ version = "2.0.0"
+ description = "Xen libvchan protocol implementation"
+ requires =
+ "lwt xen-evtchn xen-gnt xenstore xenstore.client mirage-xen mirage-types.lwt vchan"
+ archive(byte) = "vchan_xen.cma"
+ archive(byte, plugin) = "vchan_xen.cma"
+ archive(native) = "vchan_xen.cmxa"
+ archive(native, plugin) = "vchan_xen.cmxs"
+ exists_if = "vchan_xen.cma"
+)
+
 package "lwt" (
  version = "2.0.0"
  description = "Xen libvchan protocol implementation"
