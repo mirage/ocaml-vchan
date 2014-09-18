@@ -86,6 +86,8 @@ let bit_of_read_write = function Read -> 2 | Write -> 1
 
 module Make(E : EVENTS)(M: MEMORY)(C: CONFIGURATION) = struct
 
+type port = Port.t
+
 type server_params =
   {
     shr_shr: M.share;
@@ -110,7 +112,7 @@ type role =
 with sexp_of
 
 (* The state of a single vchan peer *)
-type t = {
+type flow = {
   remote_domid: int;
   remote_port: Port.t;
   shared_page: Cstruct.t; (* the shared metadata *)
@@ -132,7 +134,6 @@ type error = [
   `Unknown of string
 ]
 
-type flow = t
 type 'a io = 'a Lwt.t
 type buffer = Cstruct.t
 
@@ -197,7 +198,7 @@ type printable_t = {
   ack_up_to: int;
 } with sexp_of
 
-let sexp_of_t (t: t) =
+let sexp_of_flow (t: flow) =
   let role = t.role in
   let client_state =
     match state_of_live (get_vchan_interface_cli_live t.shared_page)
@@ -230,14 +231,14 @@ let sexp_of_t (t: t) =
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)
-let request_notify (vch: t) rdwr =
+let request_notify (vch: flow) rdwr =
   let open Cstruct in
   (* This should be correct: client -> srv_notify | server -> cli_notify *)
   let idx = match vch.role with Client _ -> 23 | Server _ -> 22 in
   i_int (atomic_or_fetch vch.shared_page.buffer idx (bit_of_read_write rdwr))
   (*; Xenctrl.xen_mb ()*)
 
-let send_notify (vch: t) rdwr =
+let send_notify (vch: flow) rdwr =
   let open Cstruct in
   (*Xenctrl.xen_mb ();*)
   (* This should be correct: client -> cli_notify | server -> srv_notify *)
@@ -248,16 +249,16 @@ let send_notify (vch: t) rdwr =
     atomic_fetch_and vch.shared_page.buffer idx (lnot bit) in
   if prev land bit <> 0 then E.send vch.evtchn
 
-let fast_get_data_ready (vch: t) request =
+let fast_get_data_ready (vch: flow) request =
   let ready = Int32.(rd_prod vch - rd_cons vch |> to_int) in
   if ready >= request then ready else
     (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch |> to_int))
 
-let data_ready (vch: t) =
+let data_ready (vch: flow) =
   request_notify vch Write;
   Int32.(rd_prod vch - rd_cons vch |> to_int)
 
-let fast_get_buffer_space (vch: t) request =
+let fast_get_buffer_space (vch: flow) request =
   let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int) in
   if ready > request then ready else
     (
@@ -265,7 +266,7 @@ let fast_get_buffer_space (vch: t) request =
       wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
     )
 
-let buffer_space (vch: t) =
+let buffer_space (vch: flow) =
   request_notify vch Read;
   wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
@@ -413,8 +414,9 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   (* Write the config to XenStore *)
   let ring_ref = M.grants_of_share shr_shr |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
+  let port = Port.of_string_exn port in
   C.write ~client_domid:domid ~port { C.ring_ref; event_channel = E.string_of_port unbound_port }
-  >>= fun () -> 
+  >>= fun () ->
 
   let role = Server { shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
@@ -425,7 +427,7 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   (* Wait for the connection *)
   let rec loop event =
     if state vch = WaitingForConnection then begin
-      E.recv evtchn event >>= fun event -> 
+      E.recv evtchn event >>= fun event ->
       loop event
     end else return () in
   loop E.initial
@@ -438,11 +440,12 @@ let (>>|=) m f = match m with
 | `Error m -> fail (Failure m)
 
 let client ~domid ~port () =
+  let port = Port.of_string_exn port in
   C.read ~server_domid:domid ~port
   >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
   E.port_of_string evtchn
   >>|= fun unbound_port ->
- 
+
   (* Map the vchan interface page *)
   let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_string gntref)) ~rw:true in
   let v = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
@@ -453,7 +456,7 @@ let client ~domid ~port () =
   >>|= fun ro ->
   let nb_left_pages = Location.to_length lo / 4096 in
   let nb_right_pages = Location.to_length ro / 4096 in
-  
+
   (* Ignore trailing junk in v *)
   let v = Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
 
@@ -493,7 +496,7 @@ let client ~domid ~port () =
   let remote_port = port and remote_domid = domid in
   Lwt.return { remote_port; remote_domid; shared_page=v; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
 
-let close (vch: t) =
+let close (vch: flow) =
   match vch.role with
   | Client { shr_map; read_map; write_map } ->
     set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);

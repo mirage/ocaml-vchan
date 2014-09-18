@@ -23,9 +23,7 @@ let () =
   let module Test = Check_flow_compatible(V) in
   ()
 
-let port = match Vchan.Port.of_string "test" with
-| `Error _ -> failwith "Failed to parse test port"
-| `Ok x -> x
+let port = "test"
 
 open Lwt
 
@@ -90,8 +88,10 @@ let with_connection read_size write_size f =
        V.close server >>= fun () ->
        return x
     ) (fun e ->
-       Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-       Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+       Printf.fprintf stderr "client = %s\n%!"
+         (Sexplib.Sexp.to_string_hum (V.sexp_of_flow client));
+       Printf.fprintf stderr "server = %s\n%!"
+         (Sexplib.Sexp.to_string_hum (V.sexp_of_flow server));
        fail e
     )
 

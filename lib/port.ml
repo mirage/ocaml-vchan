@@ -32,3 +32,8 @@ let of_string x =
   else `Error (Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; therefore '%s' is invalid." (String.escaped x))
 
 let to_string t = t
+
+let of_string_exn port =
+  match of_string port with
+  | `Ok p -> p
+  | `Error e -> raise (Failure e)
