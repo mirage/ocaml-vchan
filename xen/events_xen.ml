@@ -42,11 +42,14 @@ let send channel =
 let listen domid =
   let h = Eventchn.init () in
   let port = Eventchn.bind_unbound_port h domid in
+  Eventchn.unmask h port;
   Eventchn.to_int port, port
 
 let connect domid port =
   let h = Eventchn.init () in
-  Eventchn.bind_interdomain h domid port
+  let port' = Eventchn.bind_interdomain h domid port in
+  Eventchn.unmask h port';
+  port'
 
 let close channel =
   let h = Eventchn.init () in
