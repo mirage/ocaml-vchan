@@ -7,7 +7,7 @@ module Info = struct
 
   let get_my_domid xs =
     OS.Xs.(immediate xs (fun h -> read h "domid"))
-    
+
   let register_me xs myname =
     get_my_domid xs >>= fun domid ->
     OS.Xs.(immediate xs (fun h -> write h ("/conduit/" ^ myname) domid))
@@ -18,52 +18,57 @@ end
 
 module Server (C: V1_LWT.CONSOLE) = struct
 
-  let safedir h d =
+  let readdir h d =
     printf "safe: reading %s\n%!" d;
     OS.Xs.(directory h d) >>= fun dirs ->
     let dirs = List.filter (fun p -> p <> "") dirs in
     match dirs with
-    | [] -> print_endline "safedir restarting"; fail Xs_protocol.Eagain
-    | hd::_ -> print_endline ("safedir returning " ^ hd); return hd
-    
+    | [] -> print_endline "readdir restarting"; fail Xs_protocol.Eagain
+    | hd::_ -> print_endline ("readdir returning " ^ hd); return hd
+
+  let rec read_all c t =
+    VX.read t
+    >>= function
+    |`Eof -> Console.log c "EOF"; OS.Time.sleep 5.
+    |`Error _ -> Console.log c "ERR"; OS.Time.sleep 5.
+    |`Ok buf ->
+      let s = Cstruct.to_string buf in
+      Console.log c s;
+      read_all c t
+
   let start c =
-    lwt xs = OS.Xs.make () in
+    OS.Xs.make () >>= fun xs ->
     let name = "foo_server" in
     Info.register_me xs name >>= fun () ->
     Info.get_my_domid xs >>= fun domid ->
     Console.log_s c "Server initialising" >>= fun () ->
-    OS.Xs.(wait xs (fun h ->
-      Console.log_s c "starting wait" >>= fun () ->
-      safedir h (sprintf "/conduit/%s" name) >>= fun remote_name ->
-      Console.log_s c (sprintf "found a name %s!" remote_name) >>= fun () ->
-      safedir h (sprintf "/conduit/%s/%s" name remote_name) >>= fun port ->
-      Console.log_s c (sprintf "port %s" port) >>= fun () ->
-      OS.Xs.read h (sprintf "/conduit/%s" remote_name) >>= fun remote_domid ->
-      Console.log_s c (sprintf "remote domid is %s" remote_domid) >>= fun () ->
-      let remote_domid = int_of_string remote_domid in 
-      Console.log_s c (sprintf "remote domid is %d and port is %s" remote_domid port) >>= fun () ->
-      Vchan.Port.of_string port
-      |> function
-      |`Error e -> Console.log_s c e >>= fun () -> fail (Failure "error making port")
-      |`Ok port ->
-         Console.log_s c "creating server!!!" >>= fun () ->
-         VX.server ~domid:remote_domid ~port ~read_size:4096 ~write_size:4096 () >>= fun t ->
-         Console.log_s c "about to vx read" >>= fun () ->
-         VX.read t
-         >>= function
-         |`Eof -> Console.log c "EOF"; OS.Time.sleep 5.
-         |`Error _ -> Console.log c "ERR"; OS.Time.sleep 5.
-         |`Ok buf ->
-           let s = Cstruct.to_string buf in
-           Console.log c s; OS.Time.sleep 5.
-    ))
+    OS.Xs.wait xs
+      (fun h ->
+         Console.log_s c "starting wait" >>= fun () ->
+         readdir h (sprintf "/conduit/%s" name) >>= fun remote_name ->
+         Console.log_s c (sprintf "found a name %s!" remote_name) >>= fun () ->
+         readdir h (sprintf "/conduit/%s/%s" name remote_name) >>= fun port ->
+         Console.log_s c (sprintf "port %s" port) >>= fun () ->
+         OS.Xs.read h (sprintf "/conduit/%s" remote_name) >>= fun remote_domid ->
+         let remote_domid = int_of_string remote_domid in 
+         Console.log_s c (sprintf "remote domid is %d and port is %s" remote_domid port) >>= fun () ->
+         Vchan.Port.of_string port
+         |> function
+         |`Error e ->
+           Console.log_s c e >>= fun () ->
+           fail (Failure "error making port")
+         |`Ok port ->
+           Console.log_s c "creating server" >>= fun () ->
+           VX.server ~domid:remote_domid ~port ~read_size:4096 ~write_size:4096 ()
+           >>= read_all c
+      )
 
 end
 
 module Client (C: V1_LWT.CONSOLE) = struct
 
   let start c =
-    lwt xs = OS.Xs.make () in
+    OS.Xs.make () >>= fun xs ->
     let server_name = "foo_server" in
     let name = "foo_client" in
     let port = "flibble" in
@@ -77,18 +82,21 @@ module Client (C: V1_LWT.CONSOLE) = struct
     |> function
     |`Error _ -> fail (Failure "error making port")
     |`Ok port ->
-    OS.Time.sleep 2.0 >>= fun () ->
-    VX.client ~domid:remote_domid ~port ()
-    >>= fun t ->
-    Console.log_s c "Client connected" >>= fun () ->
-    OS.Time.sleep 1.0 >>= fun () ->
-    let buf = Io_page.(to_cstruct (get 1)) in
-    Cstruct.blit_from_string "testing" 0 buf 0 7;
-    let buf = Cstruct.sub buf 0 7 in
-    VX.write t buf
-    >>= function
-    |`Eof -> Console.log c "EOF"; OS.Time.sleep 5.
-    |`Error _ -> Console.log c "ERR"; OS.Time.sleep 5.
-    |`Ok () -> Console.log c "OK"; OS.Time.sleep 5.
-    
+      OS.Time.sleep 2.0 >>= fun () ->
+      VX.client ~domid:remote_domid ~port ()
+      >>= fun t ->
+      Console.log_s c "Client connected" >>= fun () ->
+      let rec write num =
+        let buf = Io_page.(to_cstruct (get 1)) in
+        let s = sprintf "num is %d" num in
+        let len = String.length s in
+        Cstruct.blit_from_string s 0 buf 0 len;
+        let buf = Cstruct.sub buf 0 len in
+        VX.write t buf
+        >>= function
+        |`Eof -> Console.log c "EOF"; OS.Time.sleep 5.
+        |`Error _ -> Console.log c "ERR"; OS.Time.sleep 5.
+        |`Ok () -> OS.Time.sleep 0.1 >>= fun () -> write (num+1)
+      in write 0
+
 end
