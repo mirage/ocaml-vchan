@@ -16,4 +16,5 @@
 
 include S.ENDPOINT
 
+val sexp_of_flow: flow -> Sexplib.Sexp.t
 val assert_cleaned_up: unit -> unit

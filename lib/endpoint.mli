@@ -17,4 +17,7 @@
 
 (** Client and server interface for Xen's vchan protocol. *)
 
-module Make(A : S.EVENTS)(M: S.MEMORY)(C: S.CONFIGURATION) : S.ENDPOINT
+module Make(A : S.EVENTS)(M: S.MEMORY)(C: S.CONFIGURATION) : sig
+  include S.ENDPOINT
+  val sexp_of_flow: flow -> Sexplib.Sexp.t
+end

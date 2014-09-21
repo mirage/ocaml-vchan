@@ -18,4 +18,6 @@ type t with sexp
 
 val of_string: string -> [ `Ok of t | `Error of string ]
 
+val of_string_exn: string -> t
+
 val to_string: t -> string

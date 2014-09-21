@@ -109,34 +109,4 @@ module type EVENTS = sig
   (** [close channel] closes this side of an event channel *)
 end
 
-module type ENDPOINT = sig
-  type t with sexp_of
-  (** Type of a vchan endpoint. *)
-
-  type error = [
-    `Unknown of string
-  ]
-
-  val server :
-    domid:int ->
-    port:Port.t ->
-    ?read_size:int ->
-    ?write_size:int ->
-    unit -> t Lwt.t
-
-  val client :
-    domid:int ->
-    port:Port.t ->
-    unit -> t Lwt.t
-
-  val close : t -> unit Lwt.t
-  (** Close a vchan. This deallocates the vchan and attempts to free
-      its resources. The other side is notified of the close, but can
-      still read any data pending prior to the close. *)
-
-  include V1_LWT.FLOW
-    with type flow = t
-    and  type error := error
-    and  type 'a io = 'a Lwt.t
-    and  type buffer = Cstruct.t
-end
+module type ENDPOINT = V1_LWT.VCHAN
