@@ -21,11 +21,11 @@ depends: [
   "xenstore" {>= "1.2.2"}
   "sexplib"
   "cmdliner"
+]
+depopts: [
   "xenstore_transport"
   "xen-evtchn" {>= "1.0.3"}
   "xen-gnt"
-]
-depopts: [
   "mirage-xen"
 ]
 ocaml-version: [>= "4.00.1"]
