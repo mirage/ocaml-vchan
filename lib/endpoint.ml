@@ -122,6 +122,8 @@ type t = {
   mutable ack_up_to: int; (* FLOW reader has seen this much data *)
 }
 
+type port = Port.t with sexp_of
+
 type state =
   | Exited
   | Connected

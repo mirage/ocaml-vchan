@@ -14,6 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include S.ENDPOINT
+include S.ENDPOINT with type port = Port.t
 
 val assert_cleaned_up: unit -> unit

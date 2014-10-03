@@ -14,4 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include Vchan.S.ENDPOINT
+include Vchan.S.ENDPOINT with type port = Vchan.Port.t
