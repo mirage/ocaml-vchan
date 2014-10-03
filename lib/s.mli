@@ -113,20 +113,23 @@ module type ENDPOINT = sig
   type t with sexp_of
   (** Type of a vchan endpoint. *)
 
+  type port with sexp_of
+  (** Type of a vchan port name. *)
+
   type error = [
     `Unknown of string
   ]
 
   val server :
     domid:int ->
-    port:Port.t ->
+    port:port ->
     ?read_size:int ->
     ?write_size:int ->
     unit -> t Lwt.t
 
   val client :
     domid:int ->
-    port:Port.t ->
+    port:port ->
     unit -> t Lwt.t
 
   val close : t -> unit Lwt.t

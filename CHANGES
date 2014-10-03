@@ -3,6 +3,7 @@
 * make Vchan.Port.t abstract (previously was a string)
 * use the same xenstore path convention as libxenvchan.h
 * support channel closing, `Eof etc
+* define an `ENDPOINT` signature for a Vchan.
 
 1.0.0 (2014-07-15)
 * test VM: uses the V1_LWT.FLOW signature
