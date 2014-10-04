@@ -45,7 +45,7 @@ let find_header verbose name =
   found
 
 let configure verbose =
-  let xenctrl = find_header verbose "xenctrl.h" in
+  let xenctrl = find_header verbose "xenctrl.h" && (find_ocamlfind verbose "xen-evtchn") in
   let xen = find_ocamlfind verbose "mirage-xen" in
   (* Write config.mk *)
   let lines = 
