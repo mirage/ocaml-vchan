@@ -55,12 +55,55 @@ let find_header name =
   Printf.printf "Looking for %s: %s\n" name (if found then "ok" else "missing");
   found
 
+module Common = struct
+  type t = {
+    build: string option;
+    host: string option;
+    target: string option;
+    program_prefix: string option;
+    prefix: string option;
+    exec_prefix: string option;
+    bindir: string option;
+    sbindir: string option;
+    sysconfdir: string option;
+    datadir: string option;
+    includedir: string option;
+    libdir: string option;
+    libexecdir: string option;
+    localstatedir: string option;
+    sharedstatedir: string option;
+    mandir: string option;
+    infodir: string option;
+  }
+  (** Default options provided by CentOS 6.5 %configure macro *)
+
+  let make build host target program_prefix prefix exec_prefix bindir sbindir sysconfdir datadir includedir
+    libdir libexecdir localstatedir sharedstatedir mandir infodir =
+    { build; host; target; program_prefix; prefix; exec_prefix; bindir; sbindir; sysconfdir; datadir; includedir;
+      libdir; libexecdir; localstatedir; sharedstatedir; mandir; infodir }
+
+  let _common_options = "COMMON CONFIGURE OPTIONS"
+  let help = [
+   `S _common_options;
+   `P "These options are common to all configure implementations.";
+  ]
+
+  let options_t =
+    let open Cmdliner in
+    let docs = _common_options in
+    let o name = Arg.(value & opt (some string) None & info [name] ~docs ~doc:("Set the standard configure option " ^ name)) in
+    Term.(pure make $ (o "build") $ (o "host") $ (o "target") $ (o "program-prefix") $ (o "prefix")
+                    $ (o "exec-prefix") $ (o "bindir") $ (o "sbindir") $ (o "sysconfdir") $ (o "datadir")
+                    $ (o "includedir") $ (o "libdir") $ (o "libexecdir") $ (o "localstatedir")
+                    $ (o "sharedstatedir") $ (o "mandir") $ (o "infodir"))
+end
+
 type opt = {
   name: string;
   deps_satisfied: unit -> bool;
 }
 
-let configure options v overrides =
+let configure options common v overrides =
   verbose := v;
   let failed = ref false in
   let lines =
@@ -104,7 +147,7 @@ let configure_t =
   let cons x y = x :: y in
   let overrides = List.fold_left (fun t opt -> pure cons $ opt $ t) (pure []) (List.rev (List.map to_term options)) in
 
-  pure configure $ (pure options) $ arg $ overrides
+  pure configure $ (pure options) $ Common.options_t $ arg $ overrides
 
 let () = 
   let info = Term.info "configure" ~version:"0.1" ~doc:"Configures this package" in
