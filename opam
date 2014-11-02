@@ -19,11 +19,11 @@ depends: [
   "io-page"
   "mirage-types" {>= "1.1.3"}
   "xenstore" {>= "1.2.2"}
+  "xenstore_transport"
   "sexplib"
   "cmdliner"
 ]
 depopts: [
-  "xenstore_transport"
   "xen-evtchn" {>= "1.0.3"}
   "xen-gnt"
   "mirage-xen"
