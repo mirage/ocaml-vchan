@@ -1,7 +1,7 @@
-2.0.0 (unreleased)
-* add Vchan_lwt_unix with instantiation of functor
+2.0.0 (2014-11-03)
+* add `Vchan_lwt_unix` with instantiation of functor
 * make Vchan.Port.t abstract (previously was a string)
-* use the same xenstore path convention as libxenvchan.h
+* use the same Xenstore path convention as `libxenvchan.h`
 * support channel closing, `Eof etc
 * define an `ENDPOINT` signature for a Vchan.
 
