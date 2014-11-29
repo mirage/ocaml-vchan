@@ -16,7 +16,6 @@
 
 
 module V = Vchan.In_memory
-let sleep_time = 0.2
 
 let () =
   let module Check_flow_compatible(F: V1_LWT.FLOW) = struct end in
@@ -62,7 +61,7 @@ let test_connect (read_size, write_size) =
       client_t >>= fun client ->
       V.close client >>= fun () ->
       V.close server >>= fun () ->
-      Lwt_unix.sleep sleep_time
+      return ()
     );
     V.assert_cleaned_up ()
   )
@@ -110,7 +109,7 @@ let test_write_read (read_size, write_size) =
           V.write client (cstruct_of_string "vchan world") >>|= fun () ->
           V.read server >>|= fun buf ->
           assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
-          Lwt_unix.sleep sleep_time
+          return ()
         )
     );
     V.assert_cleaned_up ()
@@ -130,7 +129,7 @@ let test_read_write (read_size, write_size) =
           V.write client (cstruct_of_string "vchan world") >>|= fun () ->
           read_t >>|= fun buf ->
           assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
-          Lwt_unix.sleep sleep_time
+          return ()
         )
     );
     V.assert_cleaned_up ()
@@ -157,7 +156,7 @@ let test_write_wraps () = Lwt_main.run (
       assert_equal ~printer:(fun x -> x) "h" (string_of_cstruct buf');
       V.read client >>|= fun buf'' ->
       assert_equal ~printer:(fun x -> x) "ello" (string_of_cstruct buf'');
-      Lwt_unix.sleep sleep_time
+      return ()
     )
 ); V.assert_cleaned_up ()
 
