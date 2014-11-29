@@ -374,7 +374,7 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
-  set_lc v 0l;
+  set_rp v 0l;
   set_vchan_interface_cli_live v (live_of_state WaitingForConnection);
   set_vchan_interface_srv_live v (live_of_state Connected);
   set_vchan_interface_cli_notify v (bit_of_read_write Write);

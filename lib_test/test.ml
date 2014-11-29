@@ -42,7 +42,7 @@ let interesting_buffer_sizes =
     1024, 2048;
     2048, 2048;
     4096, 4096;
-  ] in
+  ]  in
   let all = core in
   (* and the same again, flipped *)
   let all = all @ (List.map (fun (x, y) -> y, x) all) in
@@ -83,15 +83,18 @@ let with_connection read_size write_size f =
   let client_t = V.client ~domid:0 ~port () in
   server_t >>= fun server ->
   client_t >>= fun client ->
+  let shutdown () =
+    V.close client >>= fun () ->
+    V.close server in
   Lwt.catch
     (fun () ->
        f client server >>= fun x ->
-       V.close client >>= fun () ->
-       V.close server >>= fun () ->
+       shutdown () >>= fun () ->
        return x
     ) (fun e ->
        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+       shutdown () >>= fun () ->
        fail e
     )
 
@@ -159,11 +162,6 @@ let test_write_wraps () = Lwt_main.run (
 ); V.assert_cleaned_up ()
 
 let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test vchan protocol code";
 
   let suite = "vchan" >::: [
     "connect" >::: (List.map test_connect interesting_buffer_sizes);
@@ -171,4 +169,4 @@ let _ =
     "read_write" >::: (List.map test_read_write interesting_buffer_sizes);
     "test_write_wraps" >:: test_write_wraps;
   ] in
-  run_test_tt ~verbose:!verbose suite
+  OUnit2.run_test_tt_main (OUnit.ounit2_of_ounit1 suite)

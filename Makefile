@@ -25,7 +25,7 @@ install: setup.bin
 	@./setup.bin -install
 
 test: setup.bin build
-	@./setup.bin -test
+	./test.native -runner sequential
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
