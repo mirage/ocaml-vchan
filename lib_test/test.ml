@@ -83,15 +83,18 @@ let with_connection read_size write_size f =
   let client_t = V.client ~domid:0 ~port () in
   server_t >>= fun server ->
   client_t >>= fun client ->
+  let shutdown () =
+    V.close client >>= fun () ->
+    V.close server in
   Lwt.catch
     (fun () ->
        f client server >>= fun x ->
-       V.close client >>= fun () ->
-       V.close server >>= fun () ->
+       shutdown () >>= fun () ->
        return x
     ) (fun e ->
        Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
        Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
+       shutdown () >>= fun () ->
        fail e
     )
 
