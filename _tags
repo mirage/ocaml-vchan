@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: fb687d422da60c5bea2cee76745f6b59)
+# DO NOT EDIT (digest: 0f8bc876d6968e6e3dcceb8a8e2cd54e)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -21,6 +21,7 @@
 "lib/location.cmx": for-pack(Vchan)
 "lib/s.cmx": for-pack(Vchan)
 "lib/in_memory.cmx": for-pack(Vchan)
+"lib/in_memory_events.cmx": for-pack(Vchan)
 <lib/vchan.{cma,cmxa}>: use_libvchan_stubs
 <lib/*.ml{,i}>: package(cstruct)
 <lib/*.ml{,i}>: package(cstruct.syntax)

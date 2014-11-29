@@ -1,9 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: ad00c720d8fada1503cbb1b40e27ac11)
+# DO NOT EDIT (digest: 6be493546727ed4a13a514026be5f247)
 Endpoint
 Port
 Xenstore
 Location
 S
 In_memory
+In_memory_events
 # OASIS_STOP
