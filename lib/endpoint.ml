@@ -134,6 +134,8 @@ type error = [
   `Unknown of string
 ]
 
+let error_message (`Unknown msg) = msg
+
 type flow = t
 type 'a io = 'a Lwt.t
 type buffer = Cstruct.t
