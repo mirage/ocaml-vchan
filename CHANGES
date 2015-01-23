@@ -2,6 +2,7 @@
 * add an `error_message` function to convert a Vchan error
   into a human-readable string. (#60)
 * Improve error messages from the `configure` output (#61).
+* Use modern centrally sourced Travis script for OPAM 1.2.
 
 2.0.0 (2014-11-03)
 * add `Vchan_lwt_unix` with instantiation of functor
