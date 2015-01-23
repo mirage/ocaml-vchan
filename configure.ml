@@ -30,7 +30,7 @@ let find_ocamlfind name =
       true
     | Findlib.No_such_package(_,_ ) ->
       false in
-  if !verbose then Printf.fprintf stderr "querying for ocamlfind package %s: %s" name (if found then "ok" else "missing");
+  Printf.fprintf stderr "Looking for ocamlfind package %s: %s\n%!" name (if found then "ok" else "missing");
   found
 
 let output_file filename lines =
@@ -111,6 +111,7 @@ let configure options common v overrides =
       match opt.deps_satisfied (), override with
       | false, Some true ->
         Printf.fprintf stderr "Error: %s has unsatisfied dependencies but has been requested via the command-line" opt.name;
+        Printf.fprintf stderr "If you installed the xenctrl.h header file after installing OCaml packages, try reinstalling the OCaml packages via:\n  opam reinstall xen-evtchn xen-gnt\n\n%!";
         failed := true;
         acc
       | true, (Some true | None) ->
@@ -127,7 +128,12 @@ let configure options common v overrides =
 
 let xenctrl = {
   name = "xenctrl";
-  deps_satisfied = (fun () -> find_header "xenctrl.h" && (find_ocamlfind "xen-evtchn"));
+  deps_satisfied = (fun () ->
+    (find_header "xenctrl.h") &&
+    (find_ocamlfind "xen-evtchn") &&
+    (find_ocamlfind "xen-gnt.unix") &&
+    (find_ocamlfind "xen-evtchn.unix.activations")
+  );
 }
 
 let xen = {
