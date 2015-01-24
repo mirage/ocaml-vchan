@@ -29,3 +29,7 @@ depopts: [
   "mirage-xen"
 ]
 ocaml-version: [>= "4.00.1"]
+depexts: [
+ [["debian"] ["libxen-dev" "uuid-dev"]]
+ [["ubuntu"] ["libxen-dev" "uuid-dev"]]
+]
