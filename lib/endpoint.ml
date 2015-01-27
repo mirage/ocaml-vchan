@@ -372,7 +372,7 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
 
   (* Allocate and initialise the shared page *)
   let shr_shr = M.share ~domid ~npages:1 ~rw:true in
-  let v = Cstruct.of_bigarray (M.buf_of_share shr_shr) in
+  let v = Io_page.to_cstruct (M.buf_of_share shr_shr) in
   set_lc v 0l;
   set_lp v 0l;
   set_rc v 0l;
@@ -393,7 +393,7 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   | Location.External n ->
     let share = M.share ~domid ~npages:(1 lsl n) ~rw:true in
     let pages = M.buf_of_share share in
-    Some share, Cstruct.of_bigarray pages in
+    Some share, Io_page.to_cstruct pages in
 
   let read_shr, read_buf = allocate_locations read_l in
   let write_shr, write_buf = allocate_locations write_l in
@@ -449,7 +449,7 @@ let client ~domid ~port () =
  
   (* Map the vchan interface page *)
   let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_string gntref)) ~rw:true in
-  let v = Cstruct.of_bigarray (M.buf_of_mapping mapping) in
+  let v = Io_page.to_cstruct (M.buf_of_mapping mapping) in
 
   Location.of_order (get_lo v)
   >>|= fun lo ->
@@ -483,7 +483,7 @@ let client ~domid ~port () =
     None, Cstruct.sub v (Location.to_offset offset) (Location.to_length l)
   | Location.External n ->
     let mapping = M.mapv ~grants ~rw:true in
-    Some mapping, Cstruct.of_bigarray (M.buf_of_mapping mapping) in
+    Some mapping, Io_page.to_cstruct (M.buf_of_mapping mapping) in
   let w_map, w_buf = map_locations lgrants lo in
   let r_map, r_buf = map_locations rgrants ro in
 
