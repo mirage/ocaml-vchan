@@ -16,7 +16,7 @@ opam install -y bisect_ppx oasis ocveralls
 sed -i '/BuildDepends:/ s/$/, bisect_ppx/' _oasis
 oasis setup
 
-./configure --enable-tests
+./configure
 make
 
 find . -name bisect* | xargs rm -f
