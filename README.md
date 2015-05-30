@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/mirage/ocaml-vchan.svg?branch=master)](https://travis-ci.org/mirage/ocaml-vchan)
+[![Coverage Status](https://coveralls.io/repos/mirage/ocaml-vchan/badge.svg?branch=master)](https://coveralls.io/r/mirage/ocaml-vchan?branch=master)
+
 This is an implementation of the Xen "libvchan" or "vchan" communication
 protocol in OCaml. It allows fast inter-domain communication using shared
 memory.
