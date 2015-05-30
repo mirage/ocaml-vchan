@@ -52,7 +52,7 @@ Executable test
 
 Test core_test
   Run$:               flag(tests)
-  Command:            $test
+  Command:            $test -runner sequential
   WorkingDirectory:   lib_test
 
 Executable xencat
