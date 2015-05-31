@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# WARNING: don't display commands which may contain auth tokens
+set +ex
+
 eval `opam config env`
 opam install xen-gnt xen-evtchn mirage-xen -y
 ./configure
