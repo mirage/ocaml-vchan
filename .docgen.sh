@@ -22,11 +22,11 @@ rm -rf $DOCDIR
 
 git clone --quiet --branch=gh-pages https://${GH_TOKEN}@github.com/mirage/ocaml-vchan $DOCDIR > /dev/null
 
-cp _build/pci.docdir/* $DOCDIR
+cp _build/api.docdir/* $DOCDIR
 
 git -C $DOCDIR config user.email "travis@travis-ci.org"
 git -C $DOCDIR config user.name "Travis"
 git -C $DOCDIR rm -rf .
-(cd $DOCDIR; git add *)
+git -C $DOCDIR add .
 git -C $DOCDIR commit --allow-empty -am "Travis build $TRAVIS_BUILD_NUMBER pushed docs to gh-pages"
 git -C $DOCDIR push origin gh-pages > /dev/null
