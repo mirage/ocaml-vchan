@@ -1,0 +1,13 @@
+# OASIS_START
+# DO NOT EDIT (digest: d0c9d027a23750ccf2b403b00453ba52)
+lib/Endpoint
+lib/Port
+lib/Xenstore
+lib/Location
+lib/S
+lib/In_memory
+lib/In_memory_events
+lwt/Vchan_lwt_unix
+lwt/Events_lwt_unix
+lwt/Memory_lwt_unix
+# OASIS_STOP

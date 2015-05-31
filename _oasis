@@ -67,6 +67,6 @@ Document api
   Title: Documentation and API reference
   Type: ocamlbuild (0.3)
   BuildTools+: ocamldoc
-  XOcamlbuildPath: doc
-  XOcamlbuildModules: Endpoint, S, Port, Location
+  XOcamlbuildPath: .
+  XOcamlbuildLibraries: vchan, vchan.lwt
   Install: false

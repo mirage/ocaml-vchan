@@ -37,3 +37,9 @@ uninstall:
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
+
+gh-pages:
+	bash .docgen.sh
+
+coverage:
+	bash .coverage.sh
