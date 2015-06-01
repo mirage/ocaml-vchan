@@ -43,3 +43,10 @@ gh-pages:
 
 coverage:
 	bash .coverage.sh
+
+PHONY: js-install js-uninstall
+js-install:
+	install -m 0644 js/vchan.js $(shell ocamlfind query vchan)
+
+js-uninstall:
+	rm $(shell ocamlfind query vchan)/vchan.js
