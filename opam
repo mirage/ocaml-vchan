@@ -9,9 +9,15 @@ license: "ISC"
 build: [
   ["./configure"]
   [make "build"]
-  [make "install"]
 ]
-remove: [["ocamlfind" "remove" "vchan"]]
+install: [
+  [make "install"]
+  [make "js-install"]
+]
+remove: [
+  [make "js-uninstall"]
+  ["ocamlfind" "remove" "vchan"]
+]
 depends: [
   "ocamlfind"
   "lwt" {>= "2.4.4"}
