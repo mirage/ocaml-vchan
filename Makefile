@@ -25,9 +25,9 @@ install: setup.bin
 	@./setup.bin -install
 
 test:
-	rm setup.data
-	make ENABLE_TESTS=--enable-tests build
-	./test.native -runner sequential
+	@rm -f setup.data
+	@make ENABLE_TESTS=--enable-tests build
+	@./test.native -runner sequential
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
