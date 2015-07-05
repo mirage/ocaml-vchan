@@ -52,11 +52,12 @@ Library vchan_xen
                       xenstore.client, mirage-xen, mirage-types.lwt, vchan
 
 Executable test
-  Install: false
-  CompiledObject: best
-  Path: lib_test
-  MainIs: test.ml
-  BuildDepends: cmdliner, lwt, lwt.unix, vchan, oUnit, io-page.unix
+  Build$:             flag(tests)
+  Install:            false
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             test.ml
+  BuildDepends:       cmdliner, lwt, lwt.unix, vchan, oUnit, io-page.unix
 
 Test core_test
   Run$:               flag(tests)
