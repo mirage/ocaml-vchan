@@ -6,7 +6,7 @@ J=4
 
 export OCAMLRUNPARAM=b
 
-include config.mk
+-include config.mk
 
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
@@ -53,4 +53,4 @@ js-install:
 	install -m 0644 js/vchan.js $(JS_DIR)
 
 js-uninstall:
-	rm $(JS_DIR)/vchan.js
+	rm -f $(JS_DIR)/vchan.js
