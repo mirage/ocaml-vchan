@@ -73,6 +73,7 @@ Executable xencat
   BuildDepends:       cmdliner, lwt, vchan, vchan.lwt
 
 Document api
+  Build$:             flag(xenctrl)
   Title:              Documentation and API reference
   Type:               ocamlbuild (0.3)
   BuildTools+:        ocamldoc
