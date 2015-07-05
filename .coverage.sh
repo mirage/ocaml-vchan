@@ -13,7 +13,7 @@ $(which cp) -r ../* .
 eval `opam config env`
 opam install -y bisect_ppx oasis ocveralls ounit
 
-sed -i '/BuildDepends:/ s/$/, bisect_ppx/' _oasis
+sed -i 's/BuildDepends:/BuildDepends: bisect_ppx,/g' _oasis
 oasis setup
 
 rm -f setup.data
