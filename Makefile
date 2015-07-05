@@ -13,7 +13,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure --enable-tests $(ENABLE_XENCTRL) $(ENABLE_XEN)
+	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XENCTRL) $(ENABLE_XEN)
 
 build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
@@ -24,7 +24,9 @@ doc: setup.data setup.bin
 install: setup.bin
 	@./setup.bin -install
 
-test: setup.bin build
+test:
+	rm setup.data
+	make ENABLE_TESTS=--enable-tests build
 	./test.native -runner sequential
 
 reinstall: setup.bin
