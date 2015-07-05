@@ -65,16 +65,16 @@ Test core_test
 
 Executable xencat
   Build$:             flag(xenctrl)
-  Install: false
-  CompiledObject: best
-  Path: cli
-  MainIs: xencat.ml
-  BuildDepends: cmdliner, lwt, vchan, vchan.lwt
+  Install:            false
+  CompiledObject:     best
+  Path:               cli
+  MainIs:             xencat.ml
+  BuildDepends:       cmdliner, lwt, vchan, vchan.lwt
 
 Document api
-  Title: Documentation and API reference
-  Type: ocamlbuild (0.3)
-  BuildTools+: ocamldoc
-  XOcamlbuildPath: .
+  Title:              Documentation and API reference
+  Type:               ocamlbuild (0.3)
+  BuildTools+:        ocamldoc
+  XOcamlbuildPath:    .
+  Install:           false
   XOcamlbuildLibraries: vchan, vchan.lwt
-  Install: false
