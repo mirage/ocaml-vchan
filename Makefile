@@ -6,14 +6,14 @@ J=4
 
 export OCAMLRUNPARAM=b
 
-include config.mk
+-include config.mk
 
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure --enable-tests $(ENABLE_XENCTRL) $(ENABLE_XEN)
+	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XENCTRL) $(ENABLE_XEN)
 
 build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
@@ -24,8 +24,10 @@ doc: setup.data setup.bin
 install: setup.bin
 	@./setup.bin -install
 
-test: setup.bin build
-	./test.native -runner sequential
+test:
+	@rm -f setup.data
+	@make ENABLE_TESTS=--enable-tests build
+	@./test.native -runner sequential
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
@@ -51,4 +53,4 @@ js-install:
 	install -m 0644 js/vchan.js $(JS_DIR)
 
 js-uninstall:
-	rm $(JS_DIR)/vchan.js
+	rm -f $(JS_DIR)/vchan.js
