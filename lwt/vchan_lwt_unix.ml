@@ -111,9 +111,10 @@ let open_client ~domid ~port ?(buffer_size = 1024) () =
   >>= fun t ->
 
   let close () = M.close t in
-
-  let ic = Lwt_io.make ~buffer_size ~mode:Lwt_io.input ~close (reader t) in
-  let oc = Lwt_io.make ~buffer_size ~mode:Lwt_io.output (writer t) in
+  let in_buffer = Lwt_bytes.create buffer_size in
+  let ic = Lwt_io.make ~buffer:in_buffer ~mode:Lwt_io.input ~close (reader t) in
+  let out_buffer = Lwt_bytes.create buffer_size in
+  let oc = Lwt_io.make ~buffer:out_buffer ~mode:Lwt_io.output (writer t) in
   return (ic, oc)
 
 let open_server ~domid ~port ?(buffer_size = 1024) () =
@@ -123,6 +124,8 @@ let open_server ~domid ~port ?(buffer_size = 1024) () =
 
   let close () = M.close t in
 
-  let ic = Lwt_io.make ~buffer_size ~mode:Lwt_io.input ~close (reader t) in
-  let oc = Lwt_io.make ~buffer_size ~mode:Lwt_io.output (writer t) in
+  let in_buffer = Lwt_bytes.create buffer_size in
+  let ic = Lwt_io.make ~buffer:in_buffer ~mode:Lwt_io.input ~close (reader t) in
+  let out_buffer = Lwt_bytes.create buffer_size in
+  let oc = Lwt_io.make ~buffer:out_buffer ~mode:Lwt_io.output (writer t) in
   return (ic, oc)
