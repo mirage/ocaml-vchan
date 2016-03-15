@@ -22,7 +22,7 @@ module Config = struct
   type t = {
     ring_ref: string;
     event_channel: string;
-  } with sexp
+  } [@@deriving sexp]
 
   let tbl: (Port.t, t) Hashtbl.t = Hashtbl.create 16
 
@@ -53,7 +53,7 @@ module Config = struct
 end
 
 module Memory = struct
-  type grant = int32 with sexp
+  type grant = int32 [@@deriving sexp]
 
   let grant_of_int32 x = x
   let int32_of_grant x = x
@@ -64,7 +64,7 @@ module Memory = struct
   type share = {
     grants: grant list;
     mapping: page;
-  } with sexp_of
+  } [@@deriving sexp_of]
 
   let grants_of_share x = x.grants
   let buf_of_share x = x.mapping
@@ -105,7 +105,7 @@ module Memory = struct
   type mapping = {
     mapping: page;
     grants: (int * int32) list;
-  } with sexp_of
+  } [@@deriving sexp_of]
 
   let buf_of_mapping x = x.mapping
 

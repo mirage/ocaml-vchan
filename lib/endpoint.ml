@@ -48,22 +48,26 @@ external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_f
    OK for me. *)
 
 (* matches xen/include/public/io/libxenvchan.h:ring_shared *)
-cstruct ring_shared {
-  uint32_t cons;
-  uint32_t prod
-} as little_endian
+[%%cstruct
+type ring_shared = {
+  cons: uint32_t;
+  prod: uint32_t;
+} [@@little_endian]
+]
 
 (* matches xen/include/public/io/libxenvchan.h:vchan_interface *)
-cstruct vchan_interface {
-  uint8_t left[8];  (* ring_shared *)
-  uint8_t right[8]; (* ring_shared *)
-  uint16_t left_order;
-  uint16_t right_order;
-  uint8_t cli_live;
-  uint8_t srv_live;
-  uint8_t cli_notify;
-  uint8_t srv_notify
-} as little_endian
+[%%cstruct
+type vchan_interface = {
+  left: uint8_t [@len 8];  (* ring_shared *)
+  right: uint8_t [@len 8]; (* ring_shared *)
+  left_order: uint16_t;
+  right_order: uint16_t;
+  cli_live: uint8_t;
+  srv_live: uint8_t;
+  cli_notify: uint8_t;
+  srv_notify: uint8_t;
+} [@@little_endian]
+]
 
 let get_ro v = get_vchan_interface_right_order v
 let get_lo v = get_vchan_interface_left_order v
@@ -92,7 +96,7 @@ type server_params =
     read_shr: M.share option;
     write_shr: M.share option
   }
-with sexp_of
+[@@deriving sexp_of]
 
 type client_params =
   {
@@ -100,14 +104,14 @@ type client_params =
     read_map: M.mapping option;
     write_map: M.mapping option
   }
-with sexp_of
+[@@deriving sexp_of]
 
 (* Vchan peers are explicitly client or servers *)
 type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-with sexp_of
+[@@deriving sexp_of]
 
 (* The state of a single vchan peer *)
 type t = {
@@ -122,13 +126,13 @@ type t = {
   mutable ack_up_to: int; (* FLOW reader has seen this much data *)
 }
 
-type port = Port.t with sexp_of
+type port = Port.t [@@deriving sexp_of]
 
 type state =
   | Exited
   | Connected
   | WaitingForConnection
-with sexp
+[@@deriving sexp]
 
 type error = [
   `Unknown of string
@@ -199,7 +203,7 @@ type printable_t = {
   write_consumer: int32;
   write: string;
   ack_up_to: int;
-} with sexp_of
+} [@@deriving sexp_of]
 
 let sexp_of_t (t: t) =
   let role = t.role in

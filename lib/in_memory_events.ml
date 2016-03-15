@@ -22,19 +22,19 @@ open Lwt
 
 type 'a io = 'a Lwt.t
 
-type port = int with sexp_of
+type port = int [@@deriving sexp_of]
 
 let port_of_string x = `Ok (int_of_string x)
 let string_of_port = string_of_int
 
 let next_port = ref 0
 
-type event = int with sexp_of
+type event = int [@@deriving sexp_of]
 let initial = 0
 
 module Lwt_condition = struct
   include Lwt_condition
-  type _t = unit with sexp
+  type _t = unit [@@deriving sexp]
   let sexp_of_t _ _ = sexp_of__t ()
 end
 type state =
@@ -46,7 +46,7 @@ and channel = {
   c: unit Lwt_condition.t;
   mutable state: state;
   port: port;
-} with sexp_of
+} [@@deriving sexp_of]
 
 let create () =
   let port = !next_port in

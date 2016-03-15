@@ -21,7 +21,7 @@ module Make(Xs: Xs_client_lwt.S) = struct
   type t = {
     ring_ref: string;
     event_channel: string;
-  } with sexp
+  } [@@deriving sexp]
 
   let write ~client_domid ~port t =
     Xs.make ()

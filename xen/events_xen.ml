@@ -15,7 +15,7 @@
  *)
 open Sexplib.Std
 
-type port = int with sexp_of
+type port = int [@@deriving sexp_of]
 
 let port_of_string x =
   try

@@ -15,7 +15,7 @@
  *)
 open Sexplib.Std
 
-type t = string with sexp
+type t = string [@@deriving sexp]
 
 let of_string x =
   let valid_char = function
