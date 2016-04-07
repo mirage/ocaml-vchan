@@ -1,3 +1,6 @@
+2.1.0 (2016-04-07)
+* now requires cstruct.1.9.0 and OCaml 4.02 for ppx
+
 2.0.3 (2015-09-03)
 * ounit is now a test dependency only
 * add coverage testing via travis and coveralls.io
