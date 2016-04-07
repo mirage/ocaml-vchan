@@ -19,7 +19,7 @@ module type CONFIGURATION = sig
   type t = {
     ring_ref: string;
     event_channel: string;
-  } with sexp
+  } [@@deriving sexp]
 
   val write:
      client_domid:int -> port:Port.t
@@ -37,12 +37,12 @@ module type CONFIGURATION = sig
 end
 
 module type MEMORY = sig
-  type grant with sexp
+  type grant [@@deriving sexp]
 
   val grant_of_int32: int32 -> grant
   val int32_of_grant: grant -> int32
 
-  type share with sexp_of
+  type share [@@deriving sexp_of]
 
   val grants_of_share: share -> grant list
   val buf_of_share: share -> Io_page.t
@@ -51,7 +51,7 @@ module type MEMORY = sig
 
   val unshare: share -> unit
 
-  type mapping with sexp_of
+  type mapping [@@deriving sexp_of]
 
   val buf_of_mapping: mapping -> Io_page.t
 
@@ -65,7 +65,7 @@ end
 
 module type EVENTS = sig
 
-  type port with sexp_of
+  type port [@@deriving sexp_of]
   (** an identifier for a source of events. Ports are allocated by calls to
       [listen], then exchanged out-of-band (typically by xenstore) and
       finally calls to [connect] creates a channel between the two domains.
@@ -74,11 +74,11 @@ module type EVENTS = sig
   val port_of_string: string -> [ `Ok of port | `Error of string ]
   val string_of_port: port -> string
 
-  type channel with sexp_of
+  type channel [@@deriving sexp_of]
   (** a channel is the connection between two domains and is used to send
       and receive events. *)
 
-  type event with sexp_of
+  type event [@@deriving sexp_of]
   (** an event notification received from a remote domain. Events contain no
       data and may be coalesced. Domains which are blocked will be woken up
       by an event. *)
@@ -110,10 +110,10 @@ module type EVENTS = sig
 end
 
 module type ENDPOINT = sig
-  type t with sexp_of
+  type t [@@deriving sexp_of]
   (** Type of a vchan endpoint. *)
 
-  type port with sexp_of
+  type port [@@deriving sexp_of]
   (** Type of a vchan port name. *)
 
   type error = [

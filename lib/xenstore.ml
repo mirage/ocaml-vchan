@@ -21,7 +21,7 @@ module Make(Xs: Xs_client_lwt.S) = struct
   type t = {
     ring_ref: string;
     event_channel: string;
-  } with sexp
+  } [@@deriving sexp]
 
   let write ~client_domid ~port t =
     Xs.make ()
@@ -52,11 +52,12 @@ module Make(Xs: Xs_client_lwt.S) = struct
     let xs_path = Printf.sprintf "%s/data/vchan/%s/%s" domainpath client_domid (Port.to_string port) in
     Xs.(wait c
       (fun xsh ->
-        try_lwt
+        Lwt.catch
+        (fun () ->
           read xsh (xs_path ^ "/ring-ref") >>= fun rref ->
           read xsh (xs_path ^ "/event-channel") >>= fun evtchn ->
           return (rref, evtchn)
-        with _ -> fail Xs_protocol.Eagain))
+        )(fun _ -> fail Xs_protocol.Eagain)))
     >>= fun (ring_ref, event_channel) ->
     return { ring_ref; event_channel }
 

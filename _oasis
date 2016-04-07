@@ -23,9 +23,9 @@ Library vchan
   Findlibname:        vchan
   Modules:            Endpoint, Port, Xenstore, Location, S, In_memory,
                       In_memory_events
-  BuildDepends:       lwt, cstruct, io-page, cstruct.syntax,
+  BuildDepends:       lwt, cstruct, io-page, cstruct.ppx,
                       mirage-types (>= 1.1.3), mirage-types.lwt,
-                      xenstore.client, sexplib, sexplib.syntax
+                      xenstore.client, sexplib, ppx_deriving, ppx_sexp_conv
   CSources:           vchan_stubs.c
 
 Library vchan_lwt_unix

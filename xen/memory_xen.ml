@@ -15,7 +15,7 @@
  *)
 open Sexplib.Std
 
-type grant = int32 with sexp
+type grant = int32 [@@deriving sexp]
 
 let grant_of_int32 x = x
 let int32_of_grant x = x
@@ -26,7 +26,7 @@ let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
 type share = {
   grants: grant list;
   mapping: page;
-} with sexp_of
+} [@@deriving sexp_of]
 
 let grants_of_share x = x.grants
 let buf_of_share x = x.mapping
@@ -65,7 +65,7 @@ let sexp_of_page' = sexp_of_page
 type mapping = {
   mapping: page';
   grants: (int * int32) list;
-} with sexp_of
+} [@@deriving sexp_of]
 
 let buf_of_mapping m = Gnt.Gnttab.Local_mapping.to_buf m.mapping
 

@@ -46,6 +46,14 @@ gh-pages:
 coverage:
 	bash .coverage.sh
 
+IMAGE?=ocaml-vchan
+
+xen-depends: Dockerfile build.sh
+	docker build -t $(IMAGE) .
+
+xen-build: xen-depends clean
+	docker run -v $(shell pwd):/src $(IMAGE) /build.sh
+
 JS_DIR ?= $(shell ocamlfind query vchan)
 
 PHONY: js-install js-uninstall
