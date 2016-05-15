@@ -42,7 +42,6 @@ Library vchan_lwt_unix
                       xen-gnt.unix, xenstore, xenstore.client,
                       xenstore_transport, xenstore_transport.lwt,
                       mirage-types.lwt, vchan
-  CSources:           vchan_stubs.c
 
 Library vchan_xen
   Build$:             flag(xen)

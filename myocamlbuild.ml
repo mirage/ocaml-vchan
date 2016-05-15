@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: e7bdefc264b592bad4d6fea8f2d77747) *)
+(* DO NOT EDIT (digest: c230b379b285ec78aca545dea4579012) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -773,7 +773,7 @@ let package_default =
           ("vchan_lwt_unix", ["lwt"], []);
           ("vchan_xen", ["xen"], [])
        ];
-     lib_c = [("vchan", "lib", []); ("vchan_lwt_unix", "lwt", [])];
+     lib_c = [("vchan", "lib", [])];
      flags = [];
      includes =
        [
