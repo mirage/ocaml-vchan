@@ -1,9 +1,23 @@
 language: c
-sudo: required
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh && bash -ex .docgen.sh
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh && bash -ex .docgen.sh
 env:
-  global:
-  - secure: "BJobYIRLnVumkSlSwhTLLCFl0Li3IdpIoiuTkC39JJQzk6fyz/g86A56GXsENqwOCmWIARuZbc7F2UEMeV5Cd01P99DZdv9OC3fQUzgFEd7s+9AjYtFh91jKGEtsgC67gCxFayB9WkLiME9tkgDRNKvLRk1/9eXo776js8XG4FA="
-  matrix:
-  - OCAML_VERSION=latest PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
+ global:
+   - secure: "BJobYIRLnVumkSlSwhTLLCFl0Li3IdpIoiuTkC39JJQzk6fyz/g86A56GXsENqwOCmWIARuZbc7F2UEMeV5Cd01P99DZdv9OC3fQUzgFEd7s+9AjYtFh91jKGEtsgC67gCxFayB9WkLiME9tkgDRNKvLRk1/9eXo776js8XG4FA="
+   - PACKAGE="dockerfile"
+   - DEPOPTS="mirage-xen xen-gnt xen-evtchn"
+ matrix:
+   - DISTRO=debian-stable OCAML_VERSION=4.02.3
+   - DISTRO=debian-testing OCAML_VERSION=4.02.3
+   - DISTRO=debian-unstable OCAML_VERSION=4.02.3
+   - DISTRO=ubuntu-12.04 OCAML_VERSION=4.02.3
+   - DISTRO=ubuntu-15.10 OCAML_VERSION=4.02.3
+   - DISTRO=ubuntu-16.04 OCAML_VERSION=4.02.3
+   - DISTRO=ubuntu-16.04 OCAML_VERSION=4.03.0
+   - DISTRO=centos-6 OCAML_VERSION=4.02.3
+   - DISTRO=centos-7 OCAML_VERSION=4.02.3
+   - DISTRO=fedora-23 OCAML_VERSION=4.02.3
+   - DISTRO=alpine-3.3 OCAML_VERSION=4.03.0
