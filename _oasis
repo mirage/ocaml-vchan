@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        vchan
-Version:     2.1.0
+Version:     2.1.1
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
@@ -26,6 +26,8 @@ Library vchan
   BuildDepends:       lwt, cstruct (>= 1.9.0), io-page, cstruct.ppx,
                       mirage-types (>= 1.1.3), mirage-types.lwt,
                       xenstore.client, sexplib, ppx_deriving, ppx_sexp_conv
+  XMETARequires:      lwt, cstruct, io-page, mirage-types, mirage-types.lwt,
+                      xenstore.client, sexplib
   CSources:           vchan_stubs.c
 
 Library vchan_lwt_unix
@@ -40,6 +42,7 @@ Library vchan_lwt_unix
                       xen-gnt.unix, xenstore, xenstore.client,
                       xenstore_transport, xenstore_transport.lwt,
                       mirage-types.lwt, vchan
+  CSources:           vchan_stubs.c
 
 Library vchan_xen
   Build$:             flag(xen)

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8b4ca02c3bc7dda05393d47f3b960f96)
+# DO NOT EDIT (digest: 8a8abc2e11acdd571c426f8ac7cea2ab)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -46,6 +46,7 @@ true: annot, bin_annot
 "lib/vchan_stubs.c": package(xenstore.client)
 # Library vchan_lwt_unix
 "lwt/vchan_lwt_unix.cmxs": use_vchan_lwt_unix
+<lwt/vchan_lwt_unix.{cma,cmxa}>: use_libvchan_lwt_unix_stubs
 <lwt/*.ml{,i,y}>: package(cstruct)
 <lwt/*.ml{,i,y}>: package(cstruct.ppx)
 <lwt/*.ml{,i,y}>: package(io-page)
@@ -66,6 +67,26 @@ true: annot, bin_annot
 <lwt/*.ml{,i,y}>: package(xenstore_transport)
 <lwt/*.ml{,i,y}>: package(xenstore_transport.lwt)
 <lwt/*.ml{,i,y}>: use_vchan
+"lwt/vchan_stubs.c": package(cstruct)
+"lwt/vchan_stubs.c": package(cstruct.ppx)
+"lwt/vchan_stubs.c": package(io-page)
+"lwt/vchan_stubs.c": package(io-page.unix)
+"lwt/vchan_stubs.c": package(lwt)
+"lwt/vchan_stubs.c": package(mirage-types)
+"lwt/vchan_stubs.c": package(mirage-types.lwt)
+"lwt/vchan_stubs.c": package(ppx_deriving)
+"lwt/vchan_stubs.c": package(ppx_sexp_conv)
+"lwt/vchan_stubs.c": package(sexplib)
+"lwt/vchan_stubs.c": package(xen-evtchn)
+"lwt/vchan_stubs.c": package(xen-evtchn.unix)
+"lwt/vchan_stubs.c": package(xen-evtchn.unix.activations)
+"lwt/vchan_stubs.c": package(xen-gnt)
+"lwt/vchan_stubs.c": package(xen-gnt.unix)
+"lwt/vchan_stubs.c": package(xenstore)
+"lwt/vchan_stubs.c": package(xenstore.client)
+"lwt/vchan_stubs.c": package(xenstore_transport)
+"lwt/vchan_stubs.c": package(xenstore_transport.lwt)
+"lwt/vchan_stubs.c": use_vchan
 # Library vchan_xen
 "xen/vchan_xen.cmxs": use_vchan_xen
 <xen/*.ml{,i,y}>: package(cstruct)
