@@ -16,6 +16,7 @@
 open S
 open Sexplib.Std
 open Lwt
+open Result
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -79,10 +80,6 @@ let get_lc v = get_ring_shared_cons (get_vchan_interface_left v)
 let set_lc v = set_ring_shared_cons (get_vchan_interface_left v)
 let get_rc v = get_ring_shared_cons (get_vchan_interface_right v)
 let set_rc v = set_ring_shared_cons (get_vchan_interface_right v)
-
-type ('a, 'b) result =
-  | Ok of 'a
-  | Error of 'b
 
 type read_write = Read | Write
 
