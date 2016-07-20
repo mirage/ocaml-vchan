@@ -132,11 +132,6 @@ module type ENDPOINT = sig
     port:port ->
     unit -> t Lwt.t
 
-  val close : t -> unit Lwt.t
-  (** Close a vchan. This deallocates the vchan and attempts to free
-      its resources. The other side is notified of the close, but can
-      still read any data pending prior to the close. *)
-
   include V1_LWT.FLOW
     with type flow = t
     and  type error := error
