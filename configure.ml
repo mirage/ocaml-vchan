@@ -109,15 +109,14 @@ let configure options common v overrides =
   let lines =
     List.fold_left (fun acc (opt, override) ->
       match opt.deps_satisfied (), override with
-      | false, Some true ->
-        Printf.fprintf stderr "Error: %s has unsatisfied dependencies but has been requested via the command-line" opt.name;
+      | false, true ->
+        Printf.fprintf stderr "Error: %s has unsatisfied dependencies but has been requested via the command-line\n" opt.name;
         Printf.fprintf stderr "If you installed the xenctrl.h header file after installing OCaml packages, try reinstalling the OCaml packages via:\n  opam reinstall xen-evtchn xen-gnt\n\n%!";
         failed := true;
         acc
-      | true, (Some true | None) ->
+      | true, _ ->
         Printf.sprintf "ENABLE_%s=--enable-%s" (String.uppercase opt.name) opt.name :: acc
-      | true, Some false
-      | false, (Some false | None) ->
+      | false, false ->
         Printf.sprintf "ENABLE_%s=--disable-%s" (String.uppercase opt.name) opt.name :: acc
      ) [] (List.combine options overrides) in
   if !failed then exit 1;
@@ -148,15 +147,15 @@ open Cmdliner
 let configure_t =
   let arg = Arg.(value & flag & info ["verbose"; "v"] ~doc:"enable verbose printing") in
   let to_term x =
-    Arg.(value & opt (some bool) None & info [x.name] ~doc:("Forcibly enable or disable option '" ^ x.name ^ "'")) in
+    Arg.(value & flag & info ["enable-" ^ x.name] ~doc:("Forcibly enable or disable option '" ^ x.name ^ "'")) in
   let open Term in
   let cons x y = x :: y in
   let overrides = List.fold_left (fun t opt -> pure cons $ opt $ t) (pure []) (List.rev (List.map to_term options)) in
 
   pure configure $ (pure options) $ Common.options_t $ arg $ overrides
 
-let () = 
+let () =
   let info = Term.info "configure" ~version:"0.1" ~doc:"Configures this package" in
   match Term.eval (configure_t, info) with
-  | `Error _ -> exit 1 
+  | `Error _ -> exit 1
   | _ -> exit 0
