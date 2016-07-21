@@ -16,6 +16,7 @@
 open S
 open Sexplib.Std
 open Lwt
+open Result
 
 external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
 external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
@@ -80,10 +81,6 @@ let set_lc v = set_ring_shared_cons (get_vchan_interface_left v)
 let get_rc v = get_ring_shared_cons (get_vchan_interface_right v)
 let set_rc v = set_ring_shared_cons (get_vchan_interface_right v)
 
-type ('a, 'b) result =
-  | Ok of 'a
-  | Error of 'b
-
 type read_write = Read | Write
 
 let bit_of_read_write = function Read -> 2 | Write -> 1
@@ -124,6 +121,7 @@ type t = {
   evtchn: E.channel; (* Event channel to notify the other end *)
   mutable token: E.event;
   mutable ack_up_to: int; (* FLOW reader has seen this much data *)
+  mutable closed: bool;
 }
 
 type port = Port.t [@@deriving sexp_of]
@@ -203,6 +201,7 @@ type printable_t = {
   write_consumer: int32;
   write: string;
   ack_up_to: int;
+  closed: bool;
 } [@@deriving sexp_of]
 
 let sexp_of_t (t: t) =
@@ -228,11 +227,12 @@ let sexp_of_t (t: t) =
   let remote_domid = t.remote_domid in
   let remote_port = t.remote_port in
   let ack_up_to = t.ack_up_to in
+  let closed = t.closed in
   let printable_t = {
     role; left_order; right_order;
     client_state; server_state; read_producer; read_consumer; read;
     write_producer; write_consumer; write; remote_domid; remote_port;
-    ack_up_to;
+    ack_up_to; closed;
   } in
   sexp_of_printable_t printable_t
 
@@ -422,18 +422,19 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   let ring_ref = M.grants_of_share shr_shr |> List.hd |> M.int32_of_grant |> Int32.to_string in
 
   C.write ~client_domid:domid ~port { C.ring_ref; event_channel = E.string_of_port unbound_port }
-  >>= fun () -> 
+  >>= fun () ->
 
   let role = Server { shr_shr; read_shr; write_shr } in
   let ack_up_to = 0 in
+  let closed = false in
   let remote_port = port and remote_domid = domid in
   let vch = { remote_port; remote_domid; shared_page=v; role;
               read=read_buf; write=write_buf; evtchn;
-              token=E.initial; ack_up_to } in
+              token=E.initial; ack_up_to; closed } in
   (* Wait for the connection *)
   let rec loop event =
     if state vch = WaitingForConnection then begin
-      E.recv evtchn event >>= fun event -> 
+      E.recv evtchn event >>= fun event ->
       loop event
     end else return () in
   loop E.initial
@@ -450,7 +451,7 @@ let client ~domid ~port () =
   >>= fun { C.ring_ref = gntref; event_channel = evtchn } ->
   E.port_of_string evtchn
   >>|= fun unbound_port ->
- 
+
   (* Map the vchan interface page *)
   let mapping = M.map ~domid ~grant:(M.grant_of_int32 (Int32.of_string gntref)) ~rw:true in
   let v = Io_page.to_cstruct (M.buf_of_mapping mapping) in
@@ -461,7 +462,7 @@ let client ~domid ~port () =
   >>|= fun ro ->
   let nb_left_pages = Location.to_length lo / 4096 in
   let nb_right_pages = Location.to_length ro / 4096 in
-  
+
   (* Ignore trailing junk in v *)
   let v = Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
 
@@ -498,33 +499,45 @@ let client ~domid ~port () =
 
   let role = Client { shr_map=mapping; read_map=r_map; write_map=w_map } in
   let ack_up_to = 0 in
+  let closed = false in
   let remote_port = port and remote_domid = domid in
-  Lwt.return { remote_port; remote_domid; shared_page=v; role; read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to }
+  Lwt.return { remote_port; remote_domid; shared_page=v; role;
+    read=r_buf; write=w_buf; evtchn; token=E.initial; ack_up_to; closed }
 
 let close (vch: t) =
-  match vch.role with
-  | Client { shr_map; read_map; write_map } ->
-    set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
-    E.send vch.evtchn;
+  if vch.closed
+  then Lwt.return_unit
+  else begin
+    vch.closed <- true;
+    match vch.role with
+    | Client { shr_map; read_map; write_map } ->
+      set_vchan_interface_cli_live vch.shared_page (live_of_state Exited);
+      E.send vch.evtchn;
 
-    Opt.iter M.unmap read_map;
-    Opt.iter M.unmap write_map;
-    M.unmap shr_map;
-    E.close vch.evtchn;
-    return ()
+      Opt.iter M.unmap read_map;
+      Opt.iter M.unmap write_map;
+      M.unmap shr_map;
+      E.close vch.evtchn;
+      return ()
 
-  | Server { shr_shr; read_shr; write_shr } ->
-    set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
-    E.send vch.evtchn;
+    | Server { shr_shr; read_shr; write_shr } ->
+      set_vchan_interface_srv_live vch.shared_page (live_of_state Exited);
+      E.send vch.evtchn;
 
-    (* Remove the advertising in xenstore *)
-    C.delete ~client_domid:vch.remote_domid ~port:vch.remote_port
-    >>= fun () ->
+      (* Remove the advertising in xenstore *)
+      C.delete ~client_domid:vch.remote_domid ~port:vch.remote_port
+      >>= fun () ->
 
-    Opt.iter M.unshare read_shr;
-    Opt.iter M.unshare write_shr;
-    M.unshare shr_shr;
-    E.close vch.evtchn;
-    return ()
+      Opt.iter M.unshare read_shr;
+      Opt.iter M.unshare write_shr;
+      M.unshare shr_shr;
+      E.close vch.evtchn;
+      return ()
+  end
+
+let disconnect (vch: t) =
+  (* In the vchan protocol close doesn't wait for any kind of acknowledgement,
+     so disconnect and close are the same. *)
+  close vch
 
 end

@@ -34,6 +34,7 @@ depends: [
   "xenstore_transport"
   "sexplib"
   "cmdliner"
+  "result"
   "ounit" {test}
 ]
 depopts: [
