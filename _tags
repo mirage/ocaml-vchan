@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8b4ca02c3bc7dda05393d47f3b960f96)
+# DO NOT EDIT (digest: b39eb19b2ad0ac6b395b8d6d3f12a3f9)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -32,6 +32,7 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: package(mirage-types.lwt)
 <lib/*.ml{,i,y}>: package(ppx_deriving)
 <lib/*.ml{,i,y}>: package(ppx_sexp_conv)
+<lib/*.ml{,i,y}>: package(result)
 <lib/*.ml{,i,y}>: package(sexplib)
 <lib/*.ml{,i,y}>: package(xenstore.client)
 "lib/vchan_stubs.c": package(cstruct)
@@ -42,6 +43,7 @@ true: annot, bin_annot
 "lib/vchan_stubs.c": package(mirage-types.lwt)
 "lib/vchan_stubs.c": package(ppx_deriving)
 "lib/vchan_stubs.c": package(ppx_sexp_conv)
+"lib/vchan_stubs.c": package(result)
 "lib/vchan_stubs.c": package(sexplib)
 "lib/vchan_stubs.c": package(xenstore.client)
 # Library vchan_lwt_unix
@@ -55,6 +57,7 @@ true: annot, bin_annot
 <lwt/*.ml{,i,y}>: package(mirage-types.lwt)
 <lwt/*.ml{,i,y}>: package(ppx_deriving)
 <lwt/*.ml{,i,y}>: package(ppx_sexp_conv)
+<lwt/*.ml{,i,y}>: package(result)
 <lwt/*.ml{,i,y}>: package(sexplib)
 <lwt/*.ml{,i,y}>: package(xen-evtchn)
 <lwt/*.ml{,i,y}>: package(xen-evtchn.unix)
@@ -77,6 +80,7 @@ true: annot, bin_annot
 <xen/*.ml{,i,y}>: package(mirage-xen)
 <xen/*.ml{,i,y}>: package(ppx_deriving)
 <xen/*.ml{,i,y}>: package(ppx_sexp_conv)
+<xen/*.ml{,i,y}>: package(result)
 <xen/*.ml{,i,y}>: package(sexplib)
 <xen/*.ml{,i,y}>: package(xen-evtchn)
 <xen/*.ml{,i,y}>: package(xen-gnt)
@@ -96,6 +100,7 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: package(oUnit)
 <lib_test/test.{native,byte}>: package(ppx_deriving)
 <lib_test/test.{native,byte}>: package(ppx_sexp_conv)
+<lib_test/test.{native,byte}>: package(result)
 <lib_test/test.{native,byte}>: package(sexplib)
 <lib_test/test.{native,byte}>: package(xenstore.client)
 <lib_test/test.{native,byte}>: use_vchan
@@ -111,6 +116,7 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: package(oUnit)
 <lib_test/*.ml{,i,y}>: package(ppx_deriving)
 <lib_test/*.ml{,i,y}>: package(ppx_sexp_conv)
+<lib_test/*.ml{,i,y}>: package(result)
 <lib_test/*.ml{,i,y}>: package(sexplib)
 <lib_test/*.ml{,i,y}>: package(xenstore.client)
 <lib_test/*.ml{,i,y}>: use_vchan
@@ -125,6 +131,7 @@ true: annot, bin_annot
 <cli/xencat.{native,byte}>: package(mirage-types.lwt)
 <cli/xencat.{native,byte}>: package(ppx_deriving)
 <cli/xencat.{native,byte}>: package(ppx_sexp_conv)
+<cli/xencat.{native,byte}>: package(result)
 <cli/xencat.{native,byte}>: package(sexplib)
 <cli/xencat.{native,byte}>: package(xen-evtchn)
 <cli/xencat.{native,byte}>: package(xen-evtchn.unix)
@@ -147,6 +154,7 @@ true: annot, bin_annot
 <cli/*.ml{,i,y}>: package(mirage-types.lwt)
 <cli/*.ml{,i,y}>: package(ppx_deriving)
 <cli/*.ml{,i,y}>: package(ppx_sexp_conv)
+<cli/*.ml{,i,y}>: package(result)
 <cli/*.ml{,i,y}>: package(sexplib)
 <cli/*.ml{,i,y}>: package(xen-evtchn)
 <cli/*.ml{,i,y}>: package(xen-evtchn.unix)
