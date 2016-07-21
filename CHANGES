@@ -1,3 +1,8 @@
+2.2.0 (2016-07-21)
+* remove ppx as a runtime dependency
+* configure supports --{en,dis}able-xen{,ctrl} arguments
+* supports but does not require FLOW.disconnect
+
 2.1.0 (2016-04-07)
 * now requires cstruct.1.9.0 and OCaml 4.02 for ppx
 
