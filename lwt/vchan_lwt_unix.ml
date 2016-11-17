@@ -83,11 +83,11 @@ let reader t =
       let available = Cstruct.len !frag in
       if available = 0 then begin
         M.read t >>= function
-        | `Ok b ->
+        | Ok `Eof -> return 0
+        | Ok (`Data b) ->
           frag := b;
           aux buf ofs len
-        | `Eof -> return 0
-        | `Error (`Unknown msg) -> Lwt.fail (Failure msg)
+        | Error (`Msg msg) -> Lwt.fail (Failure msg)
       end else begin
         let n = min available len in
         Cstruct.blit !frag 0 (Cstruct.of_bigarray buf) ofs n;
@@ -99,11 +99,11 @@ let reader t =
 let writer t (buf: Lwt_bytes.t) (ofs: int) (len: int) =
   let b = Cstruct.sub (Cstruct.of_bigarray buf) ofs len in
   M.write t b >>= function
-  | `Ok () ->
+  | Ok () ->
     return len
-  | `Eof ->
+  | Error `Closed ->
     return 0
-  | `Error (`Unknown msg) ->
+  | Error (`Msg msg) ->
     Lwt.fail (Failure msg)
 
 let open_client ~domid ~port ?(buffer_size = 1024) () =

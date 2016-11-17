@@ -117,7 +117,7 @@ module type ENDPOINT = sig
   (** Type of a vchan port name. *)
 
   type error = [
-    `Unknown of string
+    `Msg of string
   ]
 
   val server :
@@ -134,7 +134,6 @@ module type ENDPOINT = sig
 
   include V1_LWT.FLOW
     with type flow = t
-    and  type error := error
     and  type 'a io = 'a Lwt.t
     and  type buffer = Cstruct.t
 end

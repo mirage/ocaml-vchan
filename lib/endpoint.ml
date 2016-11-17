@@ -132,11 +132,7 @@ type state =
   | WaitingForConnection
 [@@deriving sexp]
 
-type error = [
-  `Unknown of string
-]
-
-let error_message (`Unknown msg) = msg
+type error = V1.Flow.error
 
 type flow = t
 type 'a io = 'a Lwt.t
@@ -307,23 +303,23 @@ let write vch buf =
   let len = Cstruct.len buf in
   let rec inner pos event =
     if state vch <> Connected
-    then Lwt.return `Eof
+    then Lwt.return @@ Error `Closed
     else
       let avail = min (fast_get_buffer_space vch (len - pos)) (len - pos) in
       if avail > 0 then _write_noblock vch (Cstruct.sub buf pos avail);
       let pos = pos + avail in
       if pos = len
-      then Lwt.return (`Ok ())
+      then Lwt.return @@ Ok ()
       else E.recv vch.evtchn event >>= fun event -> inner pos event
   in inner 0 E.initial
 
 let rec writev vch = function
-| [] -> Lwt.return (`Ok ())
+| [] -> Lwt.return @@ Ok ()
 | b :: bs ->
   write vch b >>= function
-  | `Ok () -> writev vch bs
-  | `Eof -> Lwt.return `Eof
-  | `Error m -> Lwt.return (`Error m)
+  | Ok () -> writev vch bs
+  | Error `Closed -> Lwt.return @@ Error `Closed
+  | Error m -> Lwt.return @@ Error m
 
 (* Read a chunk in a blocking fashion. Note this returns a
    reference to the data in the ring. *)
@@ -358,9 +354,9 @@ let read vch =
   | `Ok buf ->
     (* we'll signal the remote we've consumed this data on the next iteration *)
     vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
-    Lwt.return (`Ok buf)
-  | `Eof -> Lwt.return `Eof
-  | `Error m -> Lwt.return (`Error m)
+    Lwt.return @@ Ok (`Data buf)
+  | `Eof -> Lwt.return @@ Ok `Eof
+  | `Error m -> Lwt.return (Error m)
 
 let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   (* The vchan convention is that the 'server' allocates and
