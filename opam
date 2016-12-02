@@ -49,4 +49,5 @@ available: [ocaml-version >= "4.02.0"]
 depexts: [
  [["debian"] ["libxen-dev" "uuid-dev"]]
  [["ubuntu"] ["libxen-dev" "uuid-dev"]]
+ [["archlinux"] ["xenstore"]]
 ]
