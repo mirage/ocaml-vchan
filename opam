@@ -29,7 +29,7 @@ depends: [
   "cstruct" {>= "1.9.0"}
   "ppx_tools" {build}
   "io-page"
-  "mirage-types-lwt"
+  "mirage-types-lwt" {>= "3.0.0"}
   "xenstore" {>= "1.2.2"}
   "xenstore_transport"
   "sexplib"
