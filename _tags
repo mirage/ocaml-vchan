@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b39eb19b2ad0ac6b395b8d6d3f12a3f9)
+# DO NOT EDIT (digest: f4057bb71c7b4dcee14cf7791941a2a3)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -54,6 +54,7 @@ true: annot, bin_annot
 <lwt/*.ml{,i,y}>: package(io-page.unix)
 <lwt/*.ml{,i,y}>: package(lwt)
 <lwt/*.ml{,i,y}>: package(mirage-types)
+<lwt/*.ml{,i,y}>: package(mirage-types-lwt)
 <lwt/*.ml{,i,y}>: package(mirage-types.lwt)
 <lwt/*.ml{,i,y}>: package(ppx_deriving)
 <lwt/*.ml{,i,y}>: package(ppx_sexp_conv)
@@ -76,6 +77,7 @@ true: annot, bin_annot
 <xen/*.ml{,i,y}>: package(io-page)
 <xen/*.ml{,i,y}>: package(lwt)
 <xen/*.ml{,i,y}>: package(mirage-types)
+<xen/*.ml{,i,y}>: package(mirage-types-lwt)
 <xen/*.ml{,i,y}>: package(mirage-types.lwt)
 <xen/*.ml{,i,y}>: package(mirage-xen)
 <xen/*.ml{,i,y}>: package(ppx_deriving)
@@ -128,6 +130,7 @@ true: annot, bin_annot
 <cli/xencat.{native,byte}>: package(io-page.unix)
 <cli/xencat.{native,byte}>: package(lwt)
 <cli/xencat.{native,byte}>: package(mirage-types)
+<cli/xencat.{native,byte}>: package(mirage-types-lwt)
 <cli/xencat.{native,byte}>: package(mirage-types.lwt)
 <cli/xencat.{native,byte}>: package(ppx_deriving)
 <cli/xencat.{native,byte}>: package(ppx_sexp_conv)
@@ -151,6 +154,7 @@ true: annot, bin_annot
 <cli/*.ml{,i,y}>: package(io-page.unix)
 <cli/*.ml{,i,y}>: package(lwt)
 <cli/*.ml{,i,y}>: package(mirage-types)
+<cli/*.ml{,i,y}>: package(mirage-types-lwt)
 <cli/*.ml{,i,y}>: package(mirage-types.lwt)
 <cli/*.ml{,i,y}>: package(ppx_deriving)
 <cli/*.ml{,i,y}>: package(ppx_sexp_conv)
