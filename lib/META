@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9910ab49f52db41a9dd522bd9ae827ac)
-version = "2.2.0"
+# DO NOT EDIT (digest: 75e65ab4ca1d8c0eba21fc6995700b32)
+version = "2.3.0"
 description = "Xen libvchan protocol implementation"
 requires =
 "lwt cstruct io-page mirage-types mirage-types.lwt xenstore.client sexplib result"
@@ -10,10 +10,10 @@ archive(native) = "vchan.cmxa"
 archive(native, plugin) = "vchan.cmxs"
 exists_if = "vchan.cma"
 package "xen" (
- version = "2.2.0"
+ version = "2.3.0"
  description = "Xen libvchan protocol implementation"
  requires =
- "lwt xen-evtchn xen-gnt xenstore xenstore.client mirage-xen mirage-types.lwt vchan"
+ "lwt xen-evtchn xen-gnt xenstore xenstore.client mirage-xen mirage-types-lwt vchan"
  archive(byte) = "vchan_xen.cma"
  archive(byte, plugin) = "vchan_xen.cma"
  archive(native) = "vchan_xen.cmxa"
@@ -22,10 +22,10 @@ package "xen" (
 )
 
 package "lwt" (
- version = "2.2.0"
+ version = "2.3.0"
  description = "Xen libvchan protocol implementation"
  requires =
- "lwt xen-evtchn xen-evtchn.unix xen-evtchn.unix.activations io-page.unix xen-gnt xen-gnt.unix xenstore xenstore.client xenstore_transport xenstore_transport.lwt mirage-types.lwt vchan"
+ "lwt xen-evtchn xen-evtchn.unix xen-evtchn.unix.activations io-page.unix xen-gnt xen-gnt.unix xenstore xenstore.client xenstore_transport xenstore_transport.lwt mirage-types-lwt vchan"
  archive(byte) = "vchan_lwt_unix.cma"
  archive(byte, plugin) = "vchan_lwt_unix.cma"
  archive(native) = "vchan_lwt_unix.cmxa"

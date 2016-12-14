@@ -1,6 +1,6 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        vchan
-Version:     2.2.0
+Version:     2.3.0
 Synopsis:    Xen libvchan protocol implementation
 Authors:     David Scott, Vincent Bernardoff, Jonathan Ludlam
 License:     ISC
@@ -41,7 +41,7 @@ Library vchan_lwt_unix
                       xen-evtchn.unix.activations, io-page.unix, xen-gnt,
                       xen-gnt.unix, xenstore, xenstore.client,
                       xenstore_transport, xenstore_transport.lwt,
-                      mirage-types.lwt, vchan
+                      mirage-types-lwt, vchan
 
 Library vchan_xen
   Build$:             flag(xen)
@@ -51,7 +51,7 @@ Library vchan_xen
   Findlibparent:      vchan
   Modules:            Vchan_xen, Events_xen, Memory_xen
   BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-gnt, xenstore,
-                      xenstore.client, mirage-xen, mirage-types.lwt, vchan
+                      xenstore.client, mirage-xen, mirage-types-lwt, vchan
 
 Executable test
   Build$:             flag(tests)
