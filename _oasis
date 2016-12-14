@@ -24,9 +24,9 @@ Library vchan
   Modules:            Endpoint, Port, Xenstore, Location, S, In_memory,
                       In_memory_events
   BuildDepends:       lwt, cstruct (>= 1.9.0), io-page, cstruct.ppx,
-                      mirage-types (>= 1.1.3), mirage-types.lwt, result,
+                      mirage-types (>= 1.1.3), mirage-types-lwt, result,
                       xenstore.client, sexplib, ppx_deriving, ppx_sexp_conv
-  XMETARequires:      lwt, cstruct, io-page, mirage-types, mirage-types.lwt,
+  XMETARequires:      lwt, cstruct, io-page, mirage-types, mirage-types-lwt,
                       xenstore.client, sexplib, result
   CSources:           vchan_stubs.c
 
