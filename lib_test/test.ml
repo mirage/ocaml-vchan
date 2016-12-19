@@ -67,9 +67,14 @@ let test_connect (read_size, write_size) =
   )
 
 let (>>|=) m f = m >>= function
-| `Ok x -> f x
-| `Error (`Unknown x) -> fail (Failure x)
-| `Eof -> fail (Failure "EOF")
+| Ok x -> f x
+| Error (`Msg x) -> fail (Failure x)
+| Error (`Closed) -> fail (Failure "write to closed flow")
+
+let (>>!=) m f = m >>= function
+| Ok (`Data buf) -> f buf
+| Ok `Eof -> fail (Failure "EOF encountered when more data was expected")
+| Error (`Msg x) -> fail (Failure x)
 
 let cstruct_of_string s =
   let cstr = Cstruct.create (String.length s) in
@@ -104,10 +109,10 @@ let test_write_read (read_size, write_size) =
       with_connection read_size write_size
         (fun client server ->
           V.write server (cstruct_of_string "hello") >>|= fun () ->
-          V.read client >>|= fun buf ->
+          V.read client >>!= fun buf ->
           assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
           V.write client (cstruct_of_string "vchan world") >>|= fun () ->
-          V.read server >>|= fun buf ->
+          V.read server >>!= fun buf ->
           assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
           return ()
         )
@@ -123,11 +128,11 @@ let test_read_write (read_size, write_size) =
         (fun client server ->
           let read_t = V.read client in
           V.write server (cstruct_of_string "hello") >>|= fun () ->
-          read_t >>|= fun buf ->
+          read_t >>!= fun buf ->
           assert_equal ~printer:(fun x -> x) "hello" (string_of_cstruct buf);
           let read_t = V.read server in
           V.write client (cstruct_of_string "vchan world") >>|= fun () ->
-          read_t >>|= fun buf ->
+          read_t >>!= fun buf ->
           assert_equal ~printer:(fun x -> x) "vchan world" (string_of_cstruct buf);
           return ()
         )
@@ -144,17 +149,17 @@ let test_write_wraps () = Lwt_main.run (
       let ring = Cstruct.create (size - 2) in
       for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
       V.write server ring >>|= fun () ->
-      V.read client >>|= fun buf ->
+      V.read client >>!= fun buf ->
       (* writing and reading 1 byte will ensure we have consumed the previous chunk
          (read doesn't perform a copy, see ack_up_to) *)
       V.write server (cstruct_of_string "!") >>|= fun () ->
-      V.read client >>|= fun buf ->
+      V.read client >>!= fun buf ->
       assert_equal ~printer:(fun x -> x) "!" (string_of_cstruct buf);
       (* there's 1 byte free before wraparound *)
       V.write server (cstruct_of_string "hello") >>|= fun () ->
-      V.read client >>|= fun buf' ->
+      V.read client >>!= fun buf' ->
       assert_equal ~printer:(fun x -> x) "h" (string_of_cstruct buf');
-      V.read client >>|= fun buf'' ->
+      V.read client >>!= fun buf'' ->
       assert_equal ~printer:(fun x -> x) "ello" (string_of_cstruct buf'');
       return ()
     )
