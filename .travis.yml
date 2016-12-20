@@ -5,6 +5,7 @@ script: bash -ex .travis-opam.sh && bash -ex .docgen.sh
 env:
   global:
   - secure: "BJobYIRLnVumkSlSwhTLLCFl0Li3IdpIoiuTkC39JJQzk6fyz/g86A56GXsENqwOCmWIARuZbc7F2UEMeV5Cd01P99DZdv9OC3fQUzgFEd7s+9AjYtFh91jKGEtsgC67gCxFayB9WkLiME9tkgDRNKvLRk1/9eXo776js8XG4FA="
+  - EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
   matrix:
-  - OCAML_VERSION=4.02 PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
   - OCAML_VERSION=4.03 PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
+  - OCAML_VERSION=4.04 PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
