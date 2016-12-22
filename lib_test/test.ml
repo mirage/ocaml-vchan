@@ -18,7 +18,7 @@
 module V = Vchan.In_memory
 
 let () =
-  let module Check_flow_compatible(F: V1_LWT.FLOW) = struct end in
+  let module Check_flow_compatible(F: Mirage_flow_lwt.S) = struct end in
   let module Test = Check_flow_compatible(V) in
   ()
 
@@ -67,14 +67,13 @@ let test_connect (read_size, write_size) =
   )
 
 let (>>|=) m f = m >>= function
-| Ok x -> f x
-| Error (`Msg x) -> fail (Failure x)
-| Error (`Closed) -> fail (Failure "write to closed flow")
+| Ok x    -> f x
+| Error e -> Fmt.kstrf fail_with "%a" V.pp_write_error e
 
 let (>>!=) m f = m >>= function
 | Ok (`Data buf) -> f buf
-| Ok `Eof -> fail (Failure "EOF encountered when more data was expected")
-| Error (`Msg x) -> fail (Failure x)
+| Ok `Eof -> fail_with "EOF encountered when more data was expected"
+| Error e -> Fmt.kstrf fail_with "%a" V.pp_error e
 
 let cstruct_of_string s =
   let cstr = Cstruct.create (String.length s) in

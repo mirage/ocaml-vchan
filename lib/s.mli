@@ -116,10 +116,6 @@ module type ENDPOINT = sig
   type port [@@deriving sexp_of]
   (** Type of a vchan port name. *)
 
-  type error = [
-    `Msg of string
-  ]
-
   val server :
     domid:int ->
     port:port ->
@@ -132,7 +128,7 @@ module type ENDPOINT = sig
     port:port ->
     unit -> t Lwt.t
 
-  include V1_LWT.FLOW
+  include Mirage_flow_lwt.S
     with type flow = t
     and  type 'a io = 'a Lwt.t
     and  type buffer = Cstruct.t
