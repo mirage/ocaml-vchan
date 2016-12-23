@@ -16,7 +16,7 @@ module Info = struct
     OS.Xs.(immediate xs (fun h -> read h ("/conduit/" ^ name)))
 end
 
-module Server (C: V1_LWT.CONSOLE) = struct
+module Server (C: Mirage_console_lwt.S) = struct
 
   let readdir h d =
     printf "safe: reading %s\n%!" d;
@@ -65,7 +65,7 @@ module Server (C: V1_LWT.CONSOLE) = struct
 
 end
 
-module Client (C: V1_LWT.CONSOLE) = struct
+module Client (C: Mirage_console_lwt.S) = struct
 
   let start c =
     OS.Xs.make () >>= fun xs ->
