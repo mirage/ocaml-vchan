@@ -24,9 +24,9 @@ Library vchan
   Modules:            Endpoint, Port, Xenstore, Location, S, In_memory,
                       In_memory_events
   BuildDepends:       lwt, cstruct (>= 1.9.0), io-page, cstruct.ppx,
-                      mirage-flow-lwt, mirage-console-lwt, result,
-                      xenstore.client, sexplib, ppx_deriving, ppx_sexp_conv
-  XMETARequires:      lwt, cstruct, io-page, mirage-types, mirage-types-lwt,
+                      mirage-flow-lwt, result, xenstore.client, sexplib,
+                      ppx_deriving, ppx_sexp_conv
+  XMETARequires:      lwt, cstruct, io-page, mirage-flow-lwt,
                       xenstore.client, sexplib, result
   CSources:           vchan_stubs.c
 
@@ -41,7 +41,7 @@ Library vchan_lwt_unix
                       xen-evtchn.unix.activations, io-page.unix, xen-gnt,
                       xen-gnt.unix, xenstore, xenstore.client,
                       xenstore_transport, xenstore_transport.lwt,
-                      mirage-types-lwt, vchan
+                      mirage-flow-lwt, vchan
 
 Library vchan_xen
   Build$:             flag(xen)
@@ -51,7 +51,7 @@ Library vchan_xen
   Findlibparent:      vchan
   Modules:            Vchan_xen, Events_xen, Memory_xen
   BuildDepends:       lwt, xen-evtchn (>= 1.0.3), xen-gnt, xenstore,
-                      xenstore.client, mirage-xen, mirage-types-lwt, vchan
+                      xenstore.client, mirage-xen, mirage-flow-lwt, vchan
 
 Executable test
   Build$:             flag(tests)
