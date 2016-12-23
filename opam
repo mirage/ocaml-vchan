@@ -31,7 +31,6 @@ depends: [
   "ppx_sexp_conv" {build}
   "io-page"
   "mirage-flow-lwt" {>= "1.0.0"}
-  "mirage-console-lwt" {>= "2.2.0"}
   "xenstore" {>= "1.2.2"}
   "xenstore_transport"
   "sexplib"
