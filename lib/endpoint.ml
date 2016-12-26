@@ -132,7 +132,10 @@ type state =
   | WaitingForConnection
 [@@deriving sexp]
 
-type error = V1.Flow.error
+type error
+let pp_error _ (_:error) = assert false
+type write_error = Mirage_flow.write_error
+let pp_write_error = Mirage_flow.pp_write_error
 
 type flow = t
 type 'a io = 'a Lwt.t
