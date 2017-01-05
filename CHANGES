@@ -1,3 +1,5 @@
+* support noexec /tmp directories on the configure script
+
 2.2.0 (2016-07-21)
 * remove ppx as a runtime dependency
 * configure supports --{en,dis}able-xen{,ctrl} arguments
