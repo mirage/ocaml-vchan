@@ -52,3 +52,4 @@ depexts: [
  [["ubuntu"] ["libxen-dev" "uuid-dev"]]
  [["archlinux"] ["xenstore"]]
 ]
+tags: "org:mirage"
