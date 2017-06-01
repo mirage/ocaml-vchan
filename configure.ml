@@ -131,8 +131,7 @@ let xenctrl = {
   deps_satisfied = (fun () ->
     (find_header "xenctrl.h") &&
     (find_ocamlfind "xen-evtchn") &&
-    (find_ocamlfind "xen-gnt.unix") &&
-    (find_ocamlfind "xen-evtchn.unix.activations")
+    (find_ocamlfind "xen-gnt-unix")
   );
 }
 
