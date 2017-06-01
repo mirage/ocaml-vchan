@@ -39,13 +39,10 @@ depends: [
   "ounit" {test}
 ]
 depopts: [
-  "xen-evtchn"
-  "xen-gnt"
+  "xen-evtchn-unix"
+  "xen-gnt-unix"
   "mirage-xen"
 ]
-conflicts: [
- "xen-evtchn" {< "1.0.3"}
- ]
 available: [ocaml-version >= "4.02.0"]
 depexts: [
  [["debian"] ["libxen-dev" "uuid-dev"]]

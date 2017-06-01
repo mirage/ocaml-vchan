@@ -48,11 +48,11 @@ coverage:
 
 IMAGE?=ocaml-vchan
 
-xen-depends: Dockerfile build.sh
+xen-depends: Dockerfile
 	docker build -t $(IMAGE) .
 
 xen-build: xen-depends clean
-	docker run -v $(shell pwd):/src $(IMAGE) /build.sh
+	docker run -v $(shell pwd):/src $(IMAGE) opam install vchan -y
 
 JS_DIR ?= $(shell ocamlfind query vchan)
 

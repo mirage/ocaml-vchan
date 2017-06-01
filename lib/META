@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 32914a2885623e04b9f084bfe672842e)
+# DO NOT EDIT (digest: 7e296046b696c67779277e7e64385c04)
 version = "2.3.0"
 description = "Xen libvchan protocol implementation"
 requires =
@@ -25,7 +25,7 @@ package "lwt" (
  version = "2.3.0"
  description = "Xen libvchan protocol implementation"
  requires =
- "lwt xen-evtchn xen-evtchn.unix xen-evtchn.unix.activations io-page.unix xen-gnt xen-gnt.unix xenstore xenstore.client xenstore_transport xenstore_transport.lwt mirage-flow-lwt vchan"
+ "lwt xen-evtchn xen-evtchn-unix xen-evtchn-unix io-page.unix xen-gnt xen-gnt-unix xenstore xenstore.client xenstore_transport xenstore_transport.lwt mirage-flow-lwt vchan"
  archive(byte) = "vchan_lwt_unix.cma"
  archive(byte, plugin) = "vchan_lwt_unix.cma"
  archive(native) = "vchan_lwt_unix.cmxa"

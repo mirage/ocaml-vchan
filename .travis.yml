@@ -1,10 +1,13 @@
 language: c
-sudo: required
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh && bash -ex .docgen.sh
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+services:
+  - docker
+sudo: false
 env:
-  global:
-  - secure: "BJobYIRLnVumkSlSwhTLLCFl0Li3IdpIoiuTkC39JJQzk6fyz/g86A56GXsENqwOCmWIARuZbc7F2UEMeV5Cd01P99DZdv9OC3fQUzgFEd7s+9AjYtFh91jKGEtsgC67gCxFayB9WkLiME9tkgDRNKvLRk1/9eXo776js8XG4FA="
-  matrix:
-  - OCAML_VERSION=4.03 PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
-  - OCAML_VERSION=4.04 PACKAGE=vchan DEPOPTS="mirage-xen xen-gnt xen-evtchn"
+ global:
+   - PACKAGE="vchan"
+   - PRE_INSTALL_HOOK="cd /home/opam/opam-repository && git pull origin master && opam update -u -y"
+   - DEPOPTS="mirage-xen xen-gnt-unix xen-evtchn-unix"
+ matrix:
+   - DISTRO=fedora-24 OCAML_VERSION=4.03.0
