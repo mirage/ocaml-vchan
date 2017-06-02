@@ -1,3 +1,7 @@
+## 2.3.1 (2017-06-02)
+* Depend on new xen-{gnt,evtchn}-unix
+* Modernize Dockerfile and travis configuration
+
 ## 2.3.0 (2017-01-24)
 * add archlinux dependencies
 * build against mirageos version 3, and drop support for earlier versions
