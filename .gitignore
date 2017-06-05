@@ -1,13 +1,3 @@
 _build
-setup.*
-*.docdir
-*.byte
-*.native
-config.mk
-test/*.map
-test/*.xen
-test/*.xl
-test/Makefile
-test/backend.ml
-test/main.ml
-test/myocamlbuild.ml
+*.install
+*.merlin

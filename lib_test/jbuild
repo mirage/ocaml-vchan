@@ -1,0 +1,11 @@
+(executables
+ ((names (test))
+  (libraries (cmdliner lwt lwt.unix vchan oUnit io-page.unix))
+))
+
+(alias
+ ((name runtest)
+  (deps (test.exe))
+  (action (run ${<} -runner sequential))
+))
+

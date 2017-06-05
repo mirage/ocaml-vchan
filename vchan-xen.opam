@@ -19,6 +19,7 @@ build: [
 depends: [
   "ocamlfind" {build}
   "jbuilder"  {build & >="1.0+beta9"}
+  "vchan"
   "lwt" {>= "2.5.0"}
   "cstruct" {>= "1.9.0"}
   "ppx_tools" {build}
@@ -27,6 +28,7 @@ depends: [
   "io-page"
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
+  "mirage-xen"
   "xenstore_transport"
   "sexplib"
   "cmdliner"

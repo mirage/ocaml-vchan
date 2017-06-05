@@ -1,50 +1,20 @@
-.PHONY: all clean install build
-all: build doc
 
-NAME=vchan
-J=4
+.PHONY: build clean test
 
-export OCAMLRUNPARAM=b
-
--include config.mk
-
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
-
-setup.data: setup.bin
-	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XENCTRL) $(ENABLE_XEN)
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin
-	@./setup.bin -install
+build:
+	jbuilder build @install --dev
 
 test:
-	@rm -f setup.data
-	@make ENABLE_TESTS=--enable-tests build
-	@./test.native -runner sequential
+	jbuilder runtest --dev
 
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+install:
+	jbuilder install
 
 uninstall:
-	@ocamlfind remove $(NAME) || true
+	jbuilder uninstall
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
-
-gh-pages:
-	bash .docgen.sh
-
-coverage:
-	bash .coverage.sh
+	rm -rf _build
 
 IMAGE?=ocaml-vchan
 
