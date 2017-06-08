@@ -1,13 +1,13 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
-script: bash -ex .travis-docker.sh
+sudo: false
 services:
   - docker
-sudo: false
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
 env:
- global:
-   - PACKAGE="vchan"
-   - PRE_INSTALL_HOOK="cd /home/opam/opam-repository && git pull origin master && opam update -u -y"
-   - DEPOPTS="mirage-xen xen-gnt-unix xen-evtchn-unix"
- matrix:
-   - DISTRO=fedora-24 OCAML_VERSION=4.03.0
+  global:
+  - PINS="vchan:. vchan-unix:. vchan-xen:."
+  matrix:
+  - PACKAGE="vchan" DISTRO="debian-stable" OCAML_VERSION="4.03.0"
+  - PACKAGE="vchan-unix" DISTRO="debian-testing" OCAML_VERSION="4.03.0"
+  - PACKAGE="vchan-xen" DISTRO="debian-unstable" OCAML_VERSION="4.03.0"
