@@ -1,3 +1,10 @@
+## 3.0.0 (2017-06-08)
+* Split into 3 opam packages:
+  * vchan: the platform-independent protocol code
+  * vchan-unix: the Unix user-space implementation
+  * vchan-xen: the Xen kernel implementation
+* Switch to jbuilder and topkg
+
 ## 2.3.1 (2017-06-02)
 * Depend on new xen-{gnt,evtchn}-unix
 * Modernize Dockerfile and travis configuration
