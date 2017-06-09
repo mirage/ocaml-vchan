@@ -21,7 +21,7 @@ depends: [
   "jbuilder"  {build & >="1.0+beta9"}
   "vchan"
   "lwt" {>= "2.5.0"}
-  "cstruct" {>= "1.9.0"}
+  "cstruct" {>= "2.4.1"}
   "ppx_tools" {build}
   "ppx_sexp_conv" {build}
   "ppx_cstruct" {build}
