@@ -29,8 +29,8 @@ module Server (C: Mirage_console_lwt.S) = struct
   let rec read_all c t =
     VX.read t
     >>= function
-    | Ok `Eof -> OS.Time.sleep_ns (5.0 *. 1e9 |> Int64.of_float) >>= fun () -> C.log c "EOF"
-    | Error _ -> OS.Time.sleep_ns (5.0 *. 1e9 |> Int64.of_float) >>= fun () -> C.log c "ERR"
+    | Ok `Eof -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "EOF"
+    | Error _ -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "ERR"
     | Ok (`Data buf) ->
       let s = Cstruct.to_string buf in
       C.log c s >>= fun () ->
@@ -82,7 +82,7 @@ module Client (C: Mirage_console_lwt.S) = struct
     |> function
     |`Error _ -> fail (Failure "error making port")
     |`Ok port ->
-      OS.Time.sleep_ns (2.0 *. 1e9 |> Int64.of_float) >>= fun () ->
+      OS.Time.sleep_ns (Duration.of_sec 2) >>= fun () ->
       VX.client ~domid:remote_domid ~port ()
       >>= fun t ->
       C.log c "Client connected" >>= fun () ->
@@ -94,8 +94,8 @@ module Client (C: Mirage_console_lwt.S) = struct
         let buf = Cstruct.sub buf 0 len in
         VX.write t buf
         >>= function
-        | Error _ -> OS.Time.sleep_ns (5.0 *. 1e9 |> Int64.of_float) >>= fun () -> C.log c "ERR"
-        | Ok () -> OS.Time.sleep_ns (5.0 *. 1e9 |> Int64.of_float) >>= fun () -> write (num+1)
+        | Error _ -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "ERR"
+        | Ok () -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> write (num+1)
       in write 0
 
 end
