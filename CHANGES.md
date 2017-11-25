@@ -1,3 +1,7 @@
+## 3.0.1 (2017-06-09)
+* Use the compatibility package cstruct.ppx rather than ppx_cstruct
+  to be compatible with cstruct.2.4.1 and cstruct.3.0.0
+
 ## 3.0.0 (2017-06-08)
 * Split into 3 opam packages:
   * vchan: the platform-independent protocol code
