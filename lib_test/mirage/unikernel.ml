@@ -29,11 +29,11 @@ module Server (C: Mirage_console_lwt.S) = struct
   let rec read_all c t =
     VX.read t
     >>= function
-    |`Eof -> C.log c "EOF"; OS.Time.sleep 5.
-    |`Error _ -> C.log c "ERR"; OS.Time.sleep 5.
-    |`Ok buf ->
+    | Ok `Eof -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "EOF"
+    | Error _ -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "ERR"
+    | Ok (`Data buf) ->
       let s = Cstruct.to_string buf in
-      C.log c s;
+      C.log c s >>= fun () ->
       read_all c t
 
   let start c =
@@ -41,24 +41,24 @@ module Server (C: Mirage_console_lwt.S) = struct
     let name = "foo_server" in
     Info.register_me xs name >>= fun () ->
     Info.get_my_domid xs >>= fun domid ->
-    C.log_s c "Server initialising" >>= fun () ->
+    C.log c "Server initialising" >>= fun () ->
     OS.Xs.wait xs
       (fun h ->
-         C.log_s c "starting wait" >>= fun () ->
+         C.log c "starting wait" >>= fun () ->
          readdir h (sprintf "/conduit/%s" name) >>= fun remote_name ->
-         C.log_s c (sprintf "found a name %s!" remote_name) >>= fun () ->
+         C.log c (sprintf "found a name %s!" remote_name) >>= fun () ->
          readdir h (sprintf "/conduit/%s/%s" name remote_name) >>= fun port ->
-         C.log_s c (sprintf "port %s" port) >>= fun () ->
+         C.log c (sprintf "port %s" port) >>= fun () ->
          OS.Xs.read h (sprintf "/conduit/%s" remote_name) >>= fun remote_domid ->
          let remote_domid = int_of_string remote_domid in
-         C.log_s c (sprintf "remote domid is %d and port is %s" remote_domid port) >>= fun () ->
+         C.log c (sprintf "remote domid is %d and port is %s" remote_domid port) >>= fun () ->
          Vchan.Port.of_string port
          |> function
          |`Error e ->
-           C.log_s c e >>= fun () ->
+           C.log c e >>= fun () ->
            fail (Failure "error making port")
          |`Ok port ->
-           C.log_s c "creating server" >>= fun () ->
+           C.log c "creating server" >>= fun () ->
            VX.server ~domid:remote_domid ~port ~read_size:4096 ~write_size:4096 ()
            >>= read_all c
       )
@@ -72,7 +72,7 @@ module Client (C: Mirage_console_lwt.S) = struct
     let server_name = "foo_server" in
     let name = "foo_client" in
     let port = "flibble" in
-    C.log_s c "Client initialising" >>= fun () ->
+    C.log c "Client initialising" >>= fun () ->
     Info.register_me xs name >>= fun () ->
     OS.Xs.(immediate xs (fun h -> read h (sprintf "/conduit/%s" server_name))) >>= fun remote_domid ->
     let remote_domid = int_of_string remote_domid in
@@ -82,10 +82,10 @@ module Client (C: Mirage_console_lwt.S) = struct
     |> function
     |`Error _ -> fail (Failure "error making port")
     |`Ok port ->
-      OS.Time.sleep 2.0 >>= fun () ->
+      OS.Time.sleep_ns (Duration.of_sec 2) >>= fun () ->
       VX.client ~domid:remote_domid ~port ()
       >>= fun t ->
-      C.log_s c "Client connected" >>= fun () ->
+      C.log c "Client connected" >>= fun () ->
       let rec write num =
         let buf = Io_page.(to_cstruct (get 1)) in
         let s = sprintf "num is %d" num in
@@ -94,9 +94,8 @@ module Client (C: Mirage_console_lwt.S) = struct
         let buf = Cstruct.sub buf 0 len in
         VX.write t buf
         >>= function
-        |`Eof -> C.log c "EOF"; OS.Time.sleep 5.
-        |`Error _ -> C.log c "ERR"; OS.Time.sleep 5.
-        |`Ok () -> OS.Time.sleep 0.1 >>= fun () -> write (num+1)
+        | Error _ -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> C.log c "ERR"
+        | Ok () -> OS.Time.sleep_ns (Duration.of_sec 5) >>= fun () -> write (num+1)
       in write 0
 
 end
