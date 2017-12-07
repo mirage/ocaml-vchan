@@ -4,4 +4,5 @@
   (libraries (lwt xen-evtchn-unix xen-evtchn xen-gnt-unix xen-gnt io-page.unix xenstore xenstore.client xenstore_transport xenstore_transport.lwt mirage-flow-lwt vchan))
   (wrapped false)
   (preprocess (pps (ppx_sexp_conv)))
+  (flags (:standard -safe-string))
 ))

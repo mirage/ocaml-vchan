@@ -1,4 +1,5 @@
 (executables
  ((names (xencat))
   (libraries (cmdliner lwt vchan vchan-unix))
+  (flags (:standard -safe-string))
 ))
