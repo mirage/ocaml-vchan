@@ -28,7 +28,7 @@ depends: [
   "io-page"
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
-  "xenstore_transport"
+  "xenstore_transport" { >= "1.0.0" & < "1.1.0" }
   "xen-evtchn-unix"
   "xen-gnt-unix"
   "sexplib"

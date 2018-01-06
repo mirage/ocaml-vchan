@@ -29,7 +29,7 @@ depends: [
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
   "mirage-xen"
-  "xenstore_transport"
+  "xenstore_transport" { >= "1.0.0" & < "1.1.0" }
   "sexplib"
   "cmdliner"
   "result"
