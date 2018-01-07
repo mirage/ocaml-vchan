@@ -28,7 +28,7 @@ depends: [
   "io-page"
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
-  "xenstore_transport" { >= "1.0.0" & < "1.1.0" }
+  "xenstore_transport" {>= "1.0.0"}
   "xen-evtchn-unix"
   "xen-gnt-unix"
   "sexplib"
@@ -36,5 +36,5 @@ depends: [
   "result"
   "ounit" {test}
 ]
-available: [ocaml-version >= "4.02.0"]
+available: [ocaml-version >= "4.04.0"]
 tags: "org:mirage"
