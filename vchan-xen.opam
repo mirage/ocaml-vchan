@@ -29,11 +29,11 @@ depends: [
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
   "mirage-xen"
-  "xenstore_transport"
+  "xenstore_transport" {>= "1.0.0"}
   "sexplib"
   "cmdliner"
   "result"
   "ounit" {test}
 ]
-available: [ocaml-version >= "4.02.0"]
+available: [ocaml-version >= "4.04.0"]
 tags: "org:mirage"
