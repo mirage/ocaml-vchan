@@ -28,11 +28,11 @@ module Config = struct
 
   let c = Lwt_condition.create ()
 
-  let write ~client_domid ~port t =
+  let write ~client_domid:_ ~port t =
     Hashtbl.replace tbl port t;
     return ()
 
-  let read ~server_domid ~port =
+  let read ~server_domid:_ ~port =
     let rec loop () =
       if Hashtbl.mem tbl port
       then return (Hashtbl.find tbl port)
@@ -41,7 +41,7 @@ module Config = struct
         loop () in
     loop ()
 
-  let delete ~client_domid ~port =
+  let delete ~client_domid:_ ~port =
     Hashtbl.remove tbl port;
     return ()
 
@@ -81,7 +81,7 @@ module Memory = struct
   let individual_pages = Hashtbl.create 16
   let big_mapping = Hashtbl.create 16
 
-  let share ~domid ~npages ~rw =
+  let share ~domid:_ ~npages ~rw:_ =
     let mapping = Io_page.get npages in
     let grants = get_n npages in
     let share = { grants; mapping } in
@@ -134,7 +134,7 @@ module Memory = struct
     Hashtbl.replace currently_mapped first ();
     { mapping; grants }
 
-  let unmap { mapping; grants } =
+  let unmap { mapping = _; grants } =
     let first = snd (List.hd grants) in
     if Hashtbl.mem currently_mapped first
     then Hashtbl.remove currently_mapped first

@@ -18,9 +18,6 @@ open Sexplib.Std
 open Lwt
 open Result
 
-external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply";;
-external ( $ ) : ('a -> 'b) -> 'a -> 'b = "%apply"
-
 let ( >>= ) = Lwt.bind
 
 let i_int (i:int) = ignore i
@@ -33,7 +30,6 @@ module Int32 = struct
 end
 
 module Opt = struct
-  let map f o = match o with Some e -> Some (f e) | None -> None
   let iter f o = match o with Some e -> f e | None -> ()
 end
 
@@ -47,6 +43,8 @@ external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_f
 
 (* XXX: the xen headers do not use __attribute__(packed). Edit vb: Was
    OK for me. *)
+
+[@@@warning "-32"]
 
 (* matches xen/include/public/io/libxenvchan.h:ring_shared *)
 [%%cstruct
@@ -69,6 +67,8 @@ type vchan_interface = {
   srv_notify: uint8_t;
 } [@@little_endian]
 ]
+
+[@@@warning "+32"]
 
 let get_ro v = get_vchan_interface_right_order v
 let get_lo v = get_vchan_interface_left_order v
@@ -260,10 +260,6 @@ let fast_get_data_ready (vch: t) request =
   if ready >= request then ready else
     (request_notify vch Write; Int32.(rd_prod vch - rd_cons vch |> to_int))
 
-let data_ready (vch: t) =
-  request_notify vch Write;
-  Int32.(rd_prod vch - rd_cons vch |> to_int)
-
 let fast_get_buffer_space (vch: t) request =
   let ready = wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int) in
   if ready > request then ready else
@@ -271,10 +267,6 @@ let fast_get_buffer_space (vch: t) request =
       request_notify vch Read;
       wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
     )
-
-let buffer_space (vch: t) =
-  request_notify vch Read;
-  wr_ring_size vch - Int32.(wr_prod vch - wr_cons vch |> to_int)
 
 let state vch =
   let client_state =
@@ -485,7 +477,7 @@ let client ~domid ~port () =
   let map_locations grants l = match l with
   | Location.Within_shared_page offset ->
     None, Cstruct.sub v (Location.to_offset offset) (Location.to_length l)
-  | Location.External n ->
+  | Location.External _n ->
     let mapping = M.mapv ~grants ~rw:true in
     Some mapping, Io_page.to_cstruct (M.buf_of_mapping mapping) in
   let w_map, w_buf = map_locations lgrants lo in
@@ -533,10 +525,5 @@ let close (vch: t) =
       E.close vch.evtchn;
       return ()
   end
-
-let disconnect (vch: t) =
-  (* In the vchan protocol close doesn't wait for any kind of acknowledgement,
-     so disconnect and close are the same. *)
-  close vch
 
 end

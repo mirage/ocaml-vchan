@@ -149,6 +149,7 @@ let test_write_wraps () = Lwt_main.run (
       for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
       V.write server ring >>|= fun () ->
       V.read client >>!= fun buf ->
+      assert_equal ~printer:(fun x -> x) (string_of_cstruct ring) (string_of_cstruct buf);
       (* writing and reading 1 byte will ensure we have consumed the previous chunk
          (read doesn't perform a copy, see ack_up_to) *)
       V.write server (cstruct_of_string "!") >>|= fun () ->

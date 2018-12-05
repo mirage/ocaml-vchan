@@ -65,8 +65,6 @@ module IO = struct
 
   let write = Lwt_io.write
 
-  let write_line = Lwt_io.write_line
-
   let flush = Lwt_io.flush
 
 end
