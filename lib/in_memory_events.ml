@@ -20,8 +20,6 @@ open Sexplib.Std
 
 open Lwt
 
-type 'a io = 'a Lwt.t
-
 type port = int [@@deriving sexp_of]
 
 let port_of_string x = `Ok (int_of_string x)
