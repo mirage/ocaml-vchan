@@ -1,0 +1,6 @@
+(library
+ (name vchan)
+ (public_name vchan)
+ (libraries lwt cstruct io-page mirage-flow-lwt result xenstore.client sexplib)
+ (c_names vchan_stubs)
+ (preprocess (pps ppx_sexp_conv ppx_cstruct -no-check)))
