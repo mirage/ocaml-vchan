@@ -8,9 +8,6 @@ env:
   global:
   - PINS="vchan:. vchan-unix:. vchan-xen:."
   matrix:
-  - PACKAGE="vchan" DISTRO="debian-stable" OCAML_VERSION="4.04.2"
-  - PACKAGE="vchan-unix" DISTRO="debian-testing" OCAML_VERSION="4.04.2"
-  - PACKAGE="vchan-xen" DISTRO="debian-unstable" OCAML_VERSION="4.04.2"
-  - PACKAGE="vchan" DISTRO="debian-stable" OCAML_VERSION="4.05.0"
-  - PACKAGE="vchan-unix" DISTRO="debian-testing" OCAML_VERSION="4.05.0"
-  - PACKAGE="vchan-xen" DISTRO="debian-unstable" OCAML_VERSION="4.05.0"
+  - PACKAGE="vchan" DISTRO="debian-stable" OCAML_VERSION="4.04"
+  - PACKAGE="vchan-unix" DISTRO="debian-testing" OCAML_VERSION="4.05"
+  - PACKAGE="vchan-xen" DISTRO="debian-stable" OCAML_VERSION="4.05"

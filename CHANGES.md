@@ -1,3 +1,11 @@
+## 4.0.0 (2018-12-11)
+* Modernise build for OCaml 4.04 and port to Dune (#120 @talex5 @avsm)
+* Upgrade opam metadata files to 2.0 (#120 @avsm @talex5)
+* Remove mli only module (#114 @rgrinberg @samoht)
+* Fix deprecation warning on String.create (#112 @samoht)
+* Make OCaml 4.04 the minimum version (#111 @cfcs @hannesm)
+* Update test cases for Mirage 3 (#110 @mneilsen)
+ 
 ## 3.0.0 (2017-06-08)
 * Split into 3 opam packages:
   * vchan: the platform-independent protocol code
