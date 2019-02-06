@@ -1,3 +1,7 @@
+## v4.0.1 (2019-02-08)
+* Use `io-page-unix` dependency instead of the deprecated
+  `io-page.unix` alias (@avsm)
+
 ## 4.0.0 (2018-12-11)
 * Modernise build for OCaml 4.04 and port to Dune (#120 @talex5 @avsm)
 * Upgrade opam metadata files to 2.0 (#120 @avsm @talex5)

@@ -11,3 +11,4 @@ env:
   - PACKAGE="vchan" DISTRO="debian-stable" OCAML_VERSION="4.04"
   - PACKAGE="vchan-unix" DISTRO="debian-testing" OCAML_VERSION="4.05"
   - PACKAGE="vchan-xen" DISTRO="debian-stable" OCAML_VERSION="4.05"
+  - PACKAGE="vchan-xen" DISTRO="debian-stable" OCAML_VERSION="4.07"

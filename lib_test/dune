@@ -1,6 +1,6 @@
 (executables
  (names test)
- (libraries cmdliner lwt lwt.unix vchan oUnit io-page.unix))
+ (libraries cmdliner lwt lwt.unix vchan oUnit io-page-unix))
 
 (alias
  (name runtest)
