@@ -49,7 +49,7 @@ module type MEMORY = sig
 
   val share: domid:int -> npages:int -> rw:bool -> share
 
-  val unshare: share -> unit
+  val unshare: share -> unit Lwt.t
 
   type mapping [@@deriving sexp_of]
 

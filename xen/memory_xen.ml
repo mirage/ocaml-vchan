@@ -15,70 +15,48 @@
  *)
 open Sexplib.Std
 
-type grant = int32 [@@deriving sexp]
+module Gntref = OS.Xen.Gntref
+module Export = OS.Xen.Export
+module Import = OS.Xen.Import
 
-let grant_of_int32 x = x
-let int32_of_grant x = x
+type grant = Gntref.t
+
+let grant_of_sexp x = Gntref.of_int32 @@ [%of_sexp : int32] x
+let sexp_of_grant x = [%sexp_of : int32] (Gntref.to_int32 x)
+
+let grant_of_int32 = Gntref.of_int32
+let int32_of_grant = Gntref.to_int32
 
 type page = Io_page.t
 let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
 
-type share = {
+type share = Export.t
+
+type share_info = {
   grants: grant list;
   mapping: page;
 } [@@deriving sexp_of]
 
-let grants_of_share x = x.grants
-let buf_of_share x = x.mapping
+let grants_of_share = Export.refs
+let buf_of_share = Export.mapping
 
-let gntshr_interface_open =
-  let cache = ref None in
-  fun () -> match !cache with
-  | None ->
-    let i = Gnt.Gntshr.interface_open () in
-    cache := Some i;
-    i
-  | Some i -> i
+let sexp_of_share share =
+  [%sexp_of : share_info] { grants = grants_of_share share; mapping = buf_of_share share }
 
 let share ~domid ~npages ~rw =
-  let i = gntshr_interface_open () in
-  let s = Gnt.Gntshr.share_pages_exn i domid npages rw in
-  { grants = List.map Int32.of_int s.Gnt.Gntshr.refs; mapping = s.Gnt.Gntshr.mapping }
+  Export.share_pages_exn ~domid ~count:npages ~writable:rw
 
-let unshare s =
-  let i = gntshr_interface_open () in
-  let s' = { Gnt.Gntshr.refs = List.map Int32.to_int s.grants; mapping = s.mapping } in
-  Gnt.Gntshr.munmap_exn i s'
+let unshare = Export.unshare ~release_refs:true
 
-let gnttab_interface_open =
-  let cache = ref None in
-  fun () -> match !cache with
-  | None ->
-    let i = Gnt.Gnttab.interface_open () in
-    cache := Some i;
-    i
-  | Some i -> i
+type mapping = Import.Local_mapping.t
+let sexp_of_mapping = sexp_of_page
 
-type page' = Gnt.Gnttab.Local_mapping.t
-let sexp_of_page' = sexp_of_page
-
-type mapping = {
-  mapping: page';
-  grants: (int * int32) list;
-} [@@deriving sexp_of]
-
-let buf_of_mapping m = Gnt.Gnttab.Local_mapping.to_buf m.mapping
+let buf_of_mapping m = Import.Local_mapping.to_buf m
 
 let map ~domid ~grant ~rw =
-  let i = gnttab_interface_open () in
-  let mapping = Gnt.Gnttab.map_exn i { Gnt.Gnttab.domid; ref = Int32.to_int grant } rw in
-  { mapping; grants = [ domid, grant ] }
+  Import.map_exn { Import.domid; ref = grant } ~writable:rw
 
 let mapv ~grants ~rw =
-  let i = gnttab_interface_open () in
-  let mapping = Gnt.Gnttab.mapv_exn i (List.map (fun (domid, gntref) -> { Gnt.Gnttab.domid; ref = Int32.to_int gntref }) grants) rw in
-  { mapping; grants }
+  Import.mapv_exn (List.map (fun (domid, gntref) -> { Import.domid; ref = gntref }) grants) ~writable:rw
 
-let unmap m =
-  let i = gnttab_interface_open () in
-  Gnt.Gnttab.unmap_exn i m.mapping
+let unmap = Import.Local_mapping.unmap_exn

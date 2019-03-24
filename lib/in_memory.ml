@@ -100,7 +100,8 @@ module Memory = struct
 
   let unshare share =
     List.iter (fun grant -> remove individual_pages grant) share.grants;
-    remove big_mapping (List.hd share.grants)
+    remove big_mapping (List.hd share.grants);
+    Lwt.return_unit
 
   type mapping = {
     mapping: page;

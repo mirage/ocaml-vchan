@@ -48,7 +48,8 @@ let share ~domid ~npages ~rw =
 let unshare s =
   let i = gntshr_interface_open () in
   let s' = { Gnt.Gntshr.refs = List.map Int32.to_int s.grants; mapping = s.mapping } in
-  Gnt.Gntshr.munmap_exn i s'
+  Gnt.Gntshr.munmap_exn i s';
+  Lwt.return ()
 
 let gnttab_interface_open =
   let cache = ref None in

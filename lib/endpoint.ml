@@ -31,6 +31,7 @@ end
 
 module Opt = struct
   let iter f o = match o with Some e -> f e | None -> ()
+  let iter_lwt f o = match o with Some e -> f e | None -> Lwt.return_unit
 end
 
 (* GCC atomic stuff *)
@@ -519,9 +520,9 @@ let close (vch: t) =
       C.delete ~client_domid:vch.remote_domid ~port:vch.remote_port
       >>= fun () ->
 
-      Opt.iter M.unshare read_shr;
-      Opt.iter M.unshare write_shr;
-      M.unshare shr_shr;
+      Opt.iter_lwt M.unshare read_shr >>= fun () ->
+      Opt.iter_lwt M.unshare write_shr >>= fun () ->
+      M.unshare shr_shr >>= fun () ->
       E.close vch.evtchn;
       return ()
   end
