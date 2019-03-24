@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module M: Vchan.S.ENDPOINT
+module M: Vchan.S.ENDPOINT with type port = Vchan.Port.t
 
 module type Cohttp_IO_S = sig
   type +'a t
