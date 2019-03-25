@@ -1,3 +1,7 @@
+## v4.0.2 (2019-03-25)
+* Use new OS.Xen grant API (#125 @talex5)
+* Expose type port = Vchan.Port.t in Unix API (#124 @talex5)
+
 ## v4.0.1 (2019-02-08)
 * Use `io-page-unix` dependency instead of the deprecated
   `io-page.unix` alias (@avsm)
