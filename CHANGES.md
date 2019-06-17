@@ -1,3 +1,8 @@
+## v4.0.3
+
+* Use mirage-xen 4.0.0 `Os_xen` interface (#128 @TheLortex)
+* Update opam metadata to remove `{build}` for ppx (@avsm)
+
 ## v4.0.2 (2019-03-25)
 * Use new OS.Xen grant API (#125 @talex5)
 * Expose type port = Vchan.Port.t in Unix API (#124 @talex5)
