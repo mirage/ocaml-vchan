@@ -10,16 +10,16 @@ bug-reports: "https://github.com/mirage/ocaml-vchan/issues"
 depends: [
   "ocaml" {>= "4.04.0"}
   "dune" {build}
-  "vchan" {>="4.0.0"}
+  "vchan" {=version}
   "lwt" {>= "2.5.0"}
   "cstruct" {>= "1.9.0"}
-  "ppx_tools" {build}
-  "ppx_sexp_conv" {build}
-  "ppx_cstruct" {build}
+  "ppx_tools"
+  "ppx_sexp_conv"
+  "ppx_cstruct"
   "io-page"
   "mirage-flow-lwt" {>= "1.0.0"}
   "xenstore" {>= "1.2.2"}
-  "mirage-xen" {>= "3.3.0"}
+  "mirage-xen" {>= "4.0.0"}
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
   "cmdliner"
@@ -31,3 +31,8 @@ build: [
   ["dune" "build" "-p" name "-j" jobs]
 ]
 dev-repo: "git+https://github.com/mirage/ocaml-vchan.git"
+
+pin-depends: [
+  ["mirage-xen.dev" "git+https://github.com/mirage/mirage-xen"]
+]
+
