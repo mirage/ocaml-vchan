@@ -1,4 +1,4 @@
-## v4.0.3
+## v4.0.3 (2019-06-27)
 
 * Use mirage-xen 4.0.0 `Os_xen` interface (#128 @TheLortex)
 * Update opam metadata to remove `{build}` for ppx (@avsm)
