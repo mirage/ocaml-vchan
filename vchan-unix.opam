@@ -25,7 +25,6 @@ depends: [
   "xen-gnt-unix"
   "sexplib"
   "cmdliner"
-  "result"
   "ounit" {with-test}
 ]
 build: [

@@ -16,7 +16,6 @@
 open S
 open Sexplib.Std
 open Lwt
-open Result
 
 let ( >>= ) = Lwt.bind
 
