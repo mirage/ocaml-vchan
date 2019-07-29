@@ -36,7 +36,7 @@ val to_order: t -> int
 (** [to_order t] gives the 'order' which is shared via the metadata
     page and used to uniquely identify the location *)
 
-val of_order: int -> [ `Ok of t | `Error of string ]
+val of_order: int -> (t, [> `Msg of string ]) result
 (** [of_order x] parses the order *)
 
 val of_lengths: int -> int -> t * t

@@ -22,7 +22,7 @@ open Lwt
 
 type port = int [@@deriving sexp_of]
 
-let port_of_string x = `Ok (int_of_string x)
+let port_of_string x = Ok (int_of_string x)
 let string_of_port = string_of_int
 
 let next_port = ref 0

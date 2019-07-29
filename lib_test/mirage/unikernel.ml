@@ -54,10 +54,10 @@ module Server (C: Mirage_console_lwt.S) = struct
          C.log c (sprintf "remote domid is %d and port is %s" remote_domid port) >>= fun () ->
          Vchan.Port.of_string port
          |> function
-         |`Error e ->
+         | Error (`Msg e) ->
            C.log c e >>= fun () ->
            fail (Failure "error making port")
-         |`Ok port ->
+         | Ok port ->
            C.log c "creating server" >>= fun () ->
            VX.server ~domid:remote_domid ~port ~read_size:4096 ~write_size:4096 ()
            >>= read_all c
@@ -80,8 +80,8 @@ module Client (C: Mirage_console_lwt.S) = struct
     >>= fun () ->
     Vchan.Port.of_string port
     |> function
-    |`Error _ -> fail (Failure "error making port")
-    |`Ok port ->
+    | Error _ -> fail (Failure "error making port")
+    | Ok port ->
       OS.Time.sleep_ns (Duration.of_sec 2) >>= fun () ->
       VX.client ~domid:remote_domid ~port ()
       >>= fun t ->

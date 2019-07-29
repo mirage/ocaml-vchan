@@ -23,8 +23,8 @@ let () =
   ()
 
 let port = match Vchan.Port.of_string "test" with
-| `Error _ -> failwith "Failed to parse test port"
-| `Ok x -> x
+| Error _ -> failwith "Failed to parse test port"
+| Ok x -> x
 
 open Lwt
 

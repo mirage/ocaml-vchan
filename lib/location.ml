@@ -41,11 +41,11 @@ let to_order = function
   | External n -> n + 12
 
 let of_order = function
-  | 10 -> `Ok (Within_shared_page First)
-  | 11 -> `Ok (Within_shared_page Second)
-  | n when n >= 12 -> `Ok (External (n - 12))
-  | x -> `Error (Printf.sprintf "Invalid ring order: %d" x)
- 
+  | 10 -> Ok (Within_shared_page First)
+  | 11 -> Ok (Within_shared_page Second)
+  | n when n >= 12 -> Ok (External (n - 12))
+  | x -> Error (`Msg (Printf.sprintf "Invalid ring order: %d" x))
+
 (* in increasing order of bytes *)
 let all = [
   Within_shared_page First; Within_shared_page Second;

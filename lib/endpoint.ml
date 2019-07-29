@@ -213,10 +213,10 @@ let sexp_of_t (t: t) =
     with Ok st -> Some st | _ -> None in
   let left_order =
     match Location.of_order (get_vchan_interface_left_order t.shared_page)
-    with `Ok x -> Some x | _ -> None in
+    with Ok x -> Some x | _ -> None in
   let right_order =
     match Location.of_order (get_vchan_interface_right_order t.shared_page)
-    with `Ok x -> Some x | _ -> None in
+    with Ok x -> Some x | _ -> None in
   let read_producer = rd_prod t in
   let read_consumer = rd_cons t in
   let read = Cstruct.to_string t.read in
@@ -434,8 +434,8 @@ let server ~domid ~port ?(read_size=1024) ?(write_size=1024) () =
   return vch
 
 let (>>|=) m f = match m with
-| `Ok x -> f x
-| `Error m -> fail (Failure m)
+| Ok x -> f x
+| Error (`Msg m) -> fail (Failure m)
 
 let client ~domid ~port () =
   C.read ~server_domid:domid ~port

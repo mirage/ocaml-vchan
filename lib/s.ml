@@ -71,7 +71,7 @@ module type EVENTS = sig
       finally calls to [connect] creates a channel between the two domains.
       Events are send and received over these channels. *)
 
-  val port_of_string: string -> [ `Ok of port | `Error of string ]
+  val port_of_string: string -> (port, [> `Msg of string ]) result
   val string_of_port: port -> string
 
   type channel [@@deriving sexp_of]

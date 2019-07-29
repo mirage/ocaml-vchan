@@ -28,7 +28,11 @@ let of_string x =
     (n = String.length x)
     || (valid_char x.[n] && loop (n + 1)) in
   if loop 0 && (String.length x > 0)
-  then `Ok x
-  else `Error (Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; therefore '%s' is invalid." (String.escaped x))
+  then Ok x
+  else
+    let msg = Printf.sprintf "A Vchan port must match [a-zA-Z0-9_-]+; \
+                              therefore %S is invalid." x
+    in
+    Error (`Msg msg)
 
 let to_string t = t
