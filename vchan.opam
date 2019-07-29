@@ -26,7 +26,6 @@ depends: [
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
   "cmdliner"
-  "result"
   "ounit" {with-test}
 ]
 build: [
