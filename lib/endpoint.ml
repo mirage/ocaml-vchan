@@ -454,9 +454,6 @@ let client ~domid ~port () =
   let nb_left_pages = Location.to_length lo / 4096 in
   let nb_right_pages = Location.to_length ro / 4096 in
 
-  (* Ignore trailing junk in v *)
-  let v = Cstruct.sub v 0 (sizeof_vchan_interface+4*(nb_left_pages+nb_right_pages)) in
-
   (* Bind the event channel *)
   let evtchn = E.connect domid unbound_port in
 
