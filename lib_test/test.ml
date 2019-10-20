@@ -18,7 +18,7 @@
 module V = Vchan.In_memory
 
 let () =
-  let module Check_flow_compatible(F: Mirage_flow_lwt.S) = struct end in
+  let module Check_flow_compatible(F: Mirage_flow.S) = struct end in
   let module Test = Check_flow_compatible(V) in
   ()
 

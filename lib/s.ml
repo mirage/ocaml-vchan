@@ -128,8 +128,6 @@ module type ENDPOINT = sig
     port:port ->
     unit -> t Lwt.t
 
-  include Mirage_flow_lwt.S
+  include Mirage_flow.S
     with type flow = t
-    and  type 'a io = 'a Lwt.t
-    and  type buffer = Cstruct.t
 end

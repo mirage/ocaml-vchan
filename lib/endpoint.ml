@@ -138,8 +138,6 @@ type write_error = Mirage_flow.write_error
 let pp_write_error = Mirage_flow.pp_write_error
 
 type flow = t
-type 'a io = 'a Lwt.t
-type buffer = Cstruct.t
 
 let state_of_live = function
   | 0 -> Ok Exited
