@@ -18,13 +18,13 @@
 module V = Vchan.In_memory
 
 let () =
-  let module Check_flow_compatible(F: Mirage_flow_lwt.S) = struct end in
+  let module Check_flow_compatible(F: Mirage_flow.S) = struct end in
   let module Test = Check_flow_compatible(V) in
   ()
 
 let port = match Vchan.Port.of_string "test" with
-| `Error _ -> failwith "Failed to parse test port"
-| `Ok x -> x
+| Error _ -> failwith "Failed to parse test port"
+| Ok x -> x
 
 open Lwt
 

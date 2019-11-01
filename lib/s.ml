@@ -71,7 +71,7 @@ module type EVENTS = sig
       finally calls to [connect] creates a channel between the two domains.
       Events are send and received over these channels. *)
 
-  val port_of_string: string -> [ `Ok of port | `Error of string ]
+  val port_of_string: string -> (port, [> `Msg of string ]) result
   val string_of_port: port -> string
 
   type channel [@@deriving sexp_of]
@@ -128,8 +128,6 @@ module type ENDPOINT = sig
     port:port ->
     unit -> t Lwt.t
 
-  include Mirage_flow_lwt.S
+  include Mirage_flow.S
     with type flow = t
-    and  type 'a io = 'a Lwt.t
-    and  type buffer = Cstruct.t
 end
