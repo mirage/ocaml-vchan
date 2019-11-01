@@ -1,6 +1,7 @@
 ## v5.0.0 (2019-11-01)
 * Adapt to mrage-xen 5.0.0 changes (#134 @hannesm)
 * Adapt to mirage-flow 2.0.0 changes (#134 @hannesm)
+* API change: ``val port_of_string: string -> (port, [> `Msg of string ]) result`` instead of custom result type (as suggested by @cfcs in #113)
 
 ## v4.0.3 (2019-06-27)
 
