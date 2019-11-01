@@ -19,9 +19,10 @@ type port = int [@@deriving sexp_of]
 
 let port_of_string x =
   try
-    `Ok (int_of_string x)
+    Ok (int_of_string x)
   with _ ->
-    `Error (Printf.sprintf "Valid ports must be integers; got '%s'" (String.escaped x))
+    let msg = Printf.sprintf "Valid ports must be integers; got %S" x in
+    Error (`Msg msg)
 
 let string_of_port = string_of_int
 
