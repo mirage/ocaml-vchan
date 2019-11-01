@@ -15,8 +15,6 @@
  *)
 open Sexplib.Std
 
-module OS = Os_xen
-
 type port = int [@@deriving sexp_of]
 
 let port_of_string x =

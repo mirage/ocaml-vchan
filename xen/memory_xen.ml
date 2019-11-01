@@ -15,7 +15,6 @@
  *)
 open Sexplib.Std
 
-module OS = Os_xen
 module Gntref = OS.Xen.Gntref
 module Export = OS.Xen.Export
 module Import = OS.Xen.Import
