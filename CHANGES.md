@@ -1,3 +1,7 @@
+## v5.0.0 (2019-11-01)
+* Adapt to mrage-xen 5.0.0 changes (#134 @hannesm)
+* Adapt to mirage-flow 2.0.0 changes (#134 @hannesm)
+
 ## v4.0.3 (2019-06-27)
 
 * Use mirage-xen 4.0.0 `Os_xen` interface (#128 @TheLortex)
