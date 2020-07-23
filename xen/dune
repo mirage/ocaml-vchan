@@ -1,6 +1,6 @@
 (library
  (name vchan_xen)
  (public_name vchan-xen)
- (libraries lwt xen-evtchn xenstore xenstore.client mirage-xen mirage-flow vchan)
+ (libraries lwt xenstore xenstore.client mirage-xen mirage-flow vchan)
  (wrapped false)
  (preprocess (pps ppx_sexp_conv)))
