@@ -1,3 +1,6 @@
+## v6.0.0 (2020-10-21)
+* Adapt to mirage-xen 6.0.0 API changes (Solo5 based Xen PVH, #136 @mato)
+
 ## v5.0.0 (2019-11-01)
 * Adapt to mrage-xen 5.0.0 changes (#134 @hannesm)
 * Adapt to mirage-flow 2.0.0 changes (#134 @hannesm)
