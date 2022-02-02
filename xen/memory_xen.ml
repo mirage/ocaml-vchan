@@ -15,9 +15,9 @@
  *)
 open Sexplib.Std
 
-module Gntref = OS.Xen.Gntref
-module Export = OS.Xen.Export
-module Import = OS.Xen.Import
+module Gntref = Xen_os.Xen.Gntref
+module Export = Xen_os.Xen.Export
+module Import = Xen_os.Xen.Import
 
 type grant = Gntref.t
 

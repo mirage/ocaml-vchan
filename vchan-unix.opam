@@ -16,14 +16,15 @@ depends: [
   "ppx_sexp_conv"
   "ppx_cstruct"
   "io-page"
-  "io-page-unix"
   "mirage-flow" {>= "2.0.0"}
   "xenstore" {>= "1.2.2"}
   "xenstore_transport" {>= "1.0.0"}
   "xen-evtchn-unix"
   "xen-gnt-unix"
   "sexplib"
-  "cmdliner"
+  "xen-evtchn"
+  "xen-gnt"
+  "cmdliner" {with-test}
   "ounit" {with-test}
 ]
 build: [

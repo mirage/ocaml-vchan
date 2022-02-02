@@ -68,12 +68,12 @@ let test_connect (read_size, write_size) =
 
 let (>>|=) m f = m >>= function
 | Ok x    -> f x
-| Error e -> Fmt.kstrf fail_with "%a" V.pp_write_error e
+| Error e -> Fmt.kstr fail_with "%a" V.pp_write_error e
 
 let (>>!=) m f = m >>= function
 | Ok (`Data buf) -> f buf
 | Ok `Eof -> fail_with "EOF encountered when more data was expected"
-| Error e -> Fmt.kstrf fail_with "%a" V.pp_error e
+| Error e -> Fmt.kstr fail_with "%a" V.pp_error e
 
 let cstruct_of_string s =
   let cstr = Cstruct.create (String.length s) in
@@ -146,7 +146,7 @@ let test_write_wraps () = Lwt_main.run (
     (fun client server ->
       (* leave 2 bytes free at the end of the ring *)
       let ring = Cstruct.create (size - 2) in
-      for i = 0 to Cstruct.len ring - 1 do Cstruct.set_char ring i 'X' done;
+      for i = 0 to Cstruct.length ring - 1 do Cstruct.set_char ring i 'X' done;
       V.write server ring >>|= fun () ->
       V.read client >>!= fun buf ->
       assert_equal ~printer:(fun x -> x) (string_of_cstruct ring) (string_of_cstruct buf);
