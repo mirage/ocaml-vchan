@@ -1,5 +1,4 @@
 open Cmdliner
-open Sexplib.Std
 open Vchan_lwt_unix
 
 let (>>=) = Lwt.bind
@@ -12,6 +11,7 @@ let domid = Arg.(required & pos 0 (some int) None & info ~docv:"DOMID" ~doc:"Dom
 
 let port =
   let port = Vchan.Port.of_string, fun f p -> Format.fprintf f "%s" (Vchan.Port.to_string p) in
+  let port = Arg.conv port in
   Arg.(required & pos 1 (some port) None & info ~docv:"PORT" ~doc:"Port id (unique to this client+server pair). Must only contain the following characters: [a-zA-Z0-9_-]" [])
 
 let buffer_size = Arg.(value & opt int 65536 & info ~docv:"BUFFERSIZE" ~doc:"Size in bytes of a buffer (a total of 4 will be created)" [ "buffer-size" ])
@@ -20,8 +20,8 @@ let buffer_size = Arg.(value & opt int 65536 & info ~docv:"BUFFERSIZE" ~doc:"Siz
 let sigint_t, sigint_u = Lwt.task ()
 
 let proxy buffer_size (ic, oc) (stdin, stdout) =
-  let a_buffer = String.create buffer_size in
-  let b_buffer = String.create buffer_size in
+  let a_buffer = Bytes.create buffer_size in
+  let b_buffer = Bytes.create buffer_size in
   let rec proxy buffer a b =
     Lwt_io.read_into a buffer 0 buffer_size
     >>= function
@@ -63,8 +63,6 @@ let server domid port buffer_size =
   Printf.fprintf stderr "Disconnected.\n%!";
   Lwt.return ()
 
-
-open Lwt
 
 let node listen domid port buffer_size : unit = Lwt_main.run (
   (if listen then server else client) domid port buffer_size
