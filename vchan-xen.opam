@@ -18,11 +18,11 @@ depends: [
   "io-page"
   "mirage-flow" {>= "2.0.0"}
   "xenstore" {>= "1.2.2"}
-  "mirage-xen" {>= "6.0.0"}
+  "mirage-xen" {>= "7.0.0"}
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
-  "cmdliner"
   "ounit" {with-test}
+  "cmdliner" {with-test}
 ]
 build: [
   ["dune" "subst"] {pinned}

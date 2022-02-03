@@ -279,7 +279,7 @@ let state vch =
 
 (* Write as much data as we can without blocking *)
 let _write_noblock vch buf =
-  let len = Cstruct.len buf in
+  let len = Cstruct.length buf in
   let real_idx = Int32.(logand (wr_prod vch) (of_int (wr_ring_size vch) - 1l) |> to_int) in
   let avail_contig = wr_ring_size vch - real_idx in
   let avail_contig = if avail_contig > len then len else avail_contig in
@@ -293,7 +293,7 @@ let _write_noblock vch buf =
 
 (* Write a whole buffer in a blocking fashion *)
 let write vch buf =
-  let len = Cstruct.len buf in
+  let len = Cstruct.length buf in
   let rec inner pos event =
     if state vch <> Connected
     then Lwt.return @@ Error `Closed
@@ -346,7 +346,7 @@ let read vch =
   _read_one vch E.initial >>= function
   | `Ok buf ->
     (* we'll signal the remote we've consumed this data on the next iteration *)
-    vch.ack_up_to <- vch.ack_up_to + (Cstruct.len buf);
+    vch.ack_up_to <- vch.ack_up_to + (Cstruct.length buf);
     Lwt.return @@ Ok (`Data buf)
   | `Eof -> Lwt.return @@ Ok `Eof
   | `Error m -> Lwt.return (Error m)

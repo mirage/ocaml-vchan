@@ -14,4 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include Vchan.Endpoint.Make(Events_xen)(Memory_xen)(Vchan.Xenstore.Make(OS.Xs))
+include Vchan.Endpoint.Make(Events_xen)(Memory_xen)(Vchan.Xenstore.Make(Xen_os.Xs))

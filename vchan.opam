@@ -24,9 +24,8 @@ depends: [
   "xenstore" {>= "1.2.2"}
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
-  "cmdliner"
+  "cmdliner" {with-test}
   "ounit" {with-test}
-  "io-page-unix" {with-test}
 ]
 build: [
   ["dune" "subst"] {pinned}
