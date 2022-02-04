@@ -19,3 +19,5 @@ type t [@@deriving sexp]
 val of_string: string -> (t, [> `Msg of string ]) result
 
 val to_string: t -> string
+
+val x: int
