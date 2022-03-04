@@ -24,11 +24,12 @@ depends: [
   "sexplib"
   "xen-evtchn"
   "xen-gnt"
+  "fmt" {>= "0.8.7"}
   "cmdliner" {with-test}
   "ounit" {with-test}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   ["dune" "build" "-p" name "-j" jobs]
 ]
 dev-repo: "git+https://github.com/mirage/ocaml-vchan.git"
