@@ -36,3 +36,5 @@ let of_string x =
     Error (`Msg msg)
 
 let to_string t = t
+
+let x = 1
