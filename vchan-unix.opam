@@ -26,7 +26,7 @@ depends: [
   "xen-gnt"
   "fmt" {>= "0.8.7"}
   "cmdliner" {with-test}
-  "ounit" {with-test}
+  "ounit2" {with-test}
 ]
 build: [
   ["dune" "subst"] {dev}

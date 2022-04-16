@@ -21,7 +21,7 @@ depends: [
   "mirage-xen" {>= "7.0.0"}
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
-  "ounit" {with-test}
+  "ounit2" {with-test}
   "cmdliner" {with-test}
 ]
 build: [
