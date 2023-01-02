@@ -22,7 +22,7 @@ depends: [
   "xenstore_transport" {>= "1.0.0"}
   "sexplib"
   "ounit" {with-test}
-  "cmdliner" {with-test}
+  "cmdliner" {with-test & < "1.1.0"}
 ]
 build: [
   ["dune" "subst"] {dev}
