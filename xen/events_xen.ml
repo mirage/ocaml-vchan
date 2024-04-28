@@ -13,9 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Sexplib.Std
-
-type port = int [@@deriving sexp_of]
+type port = int
 
 let port_of_string x =
   try
@@ -27,10 +25,8 @@ let port_of_string x =
 let string_of_port = string_of_int
 
 type channel = Xen_os.Eventchn.t
-let sexp_of_channel x = Sexplib.Sexp.Atom (string_of_int (Xen_os.Eventchn.to_int x))
 
 type event = Xen_os.Activations.event
-let sexp_of_event _ = Sexplib.Sexp.Atom "<event>"
 
 let initial = Xen_os.Activations.program_start
 

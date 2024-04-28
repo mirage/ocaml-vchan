@@ -17,7 +17,6 @@
 type offset =
   | First
   | Second
-[@@deriving sexp]
 (** Valid offsets within the shared page *)
 
 val to_offset: offset -> int
@@ -26,7 +25,6 @@ val to_offset: offset -> int
 type t =
   | Within_shared_page of offset (** within the shared page *)
   | External of int (** in separately granted pages *)
-[@@deriving sexp]
 (** Location of a data ring *)
 
 val to_length: t -> int

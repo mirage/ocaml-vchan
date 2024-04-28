@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open S
-open Sexplib.Std
 open Lwt
 
 let ( >>= ) = Lwt.bind
@@ -109,7 +108,6 @@ type server_params =
     read_shr: M.share option;
     write_shr: M.share option
   }
-[@@deriving sexp_of]
 
 type client_params =
   {
@@ -117,14 +115,12 @@ type client_params =
     read_map: M.mapping option;
     write_map: M.mapping option
   }
-[@@deriving sexp_of]
 
 (* Vchan peers are explicitly client or servers *)
 type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-[@@deriving sexp_of]
 
 (* The state of a single vchan peer *)
 type t = {
@@ -140,13 +136,12 @@ type t = {
   mutable closed: bool;
 }
 
-type port = Port.t [@@deriving sexp_of]
+type port = Port.t
 
 type state =
   | Exited
   | Connected
   | WaitingForConnection
-[@@deriving sexp]
 
 type error
 let pp_error _ (_:error) = assert false
@@ -197,57 +192,6 @@ let wr_ring_size vch = match vch.role with
 let rd_ring_size vch = match vch.role with
   | Client _ -> 1 lsl get_ro vch.shared_page
   | Server _ -> 1 lsl get_lo vch.shared_page
-
-(* A convenient wrapper to enhance the pretty-printing *)
-type printable_t = {
-  role: role;
-  left_order: Location.t option;
-  right_order: Location.t option;
-  remote_domid: int;
-  remote_port: Port.t;
-  client_state: state option;
-  server_state: state option;
-  read_producer: int32;
-  read_consumer: int32;
-  read: string;
-  write_producer: int32;
-  write_consumer: int32;
-  write: string;
-  ack_up_to: int;
-  closed: bool;
-} [@@deriving sexp_of]
-
-let sexp_of_t (t: t) =
-  let role = t.role in
-  let client_state =
-    match state_of_live (get_vchan_interface_cli_live t.shared_page)
-    with Ok st -> Some st | _ -> None in
-  let server_state =
-    match state_of_live (get_vchan_interface_srv_live t.shared_page)
-    with Ok st -> Some st | _ -> None in
-  let left_order =
-    match Location.of_order (get_vchan_interface_left_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
-  let right_order =
-    match Location.of_order (get_vchan_interface_right_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
-  let read_producer = rd_prod t in
-  let read_consumer = rd_cons t in
-  let read = Cstruct.to_string t.read in
-  let write_producer = wr_prod t in
-  let write_consumer = wr_cons t in
-  let write = Cstruct.to_string t.write in
-  let remote_domid = t.remote_domid in
-  let remote_port = t.remote_port in
-  let ack_up_to = t.ack_up_to in
-  let closed = t.closed in
-  let printable_t = {
-    role; left_order; right_order;
-    client_state; server_state; read_producer; read_consumer; read;
-    write_producer; write_consumer; write; remote_domid; remote_port;
-    ack_up_to; closed;
-  } in
-  sexp_of_printable_t printable_t
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)

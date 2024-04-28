@@ -14,15 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Sexplib.Std
-
 module Config = struct
   open Lwt
 
   type t = {
     ring_ref: string;
     event_channel: string;
-  } [@@deriving sexp]
+  }
 
   let tbl: (Port.t, t) Hashtbl.t = Hashtbl.create 16
 
@@ -53,18 +51,17 @@ module Config = struct
 end
 
 module Memory = struct
-  type grant = int32 [@@deriving sexp]
+  type grant = int32
 
   let grant_of_int32 x = x
   let int32_of_grant x = x
 
   type page = Io_page.t
-  let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
 
   type share = {
     grants: grant list;
     mapping: page;
-  } [@@deriving sexp_of]
+  }
 
   let grants_of_share x = x.grants
   let buf_of_share x = x.mapping
@@ -106,7 +103,7 @@ module Memory = struct
   type mapping = {
     mapping: page;
     grants: (int * int32) list;
-  } [@@deriving sexp_of]
+  }
 
   let buf_of_mapping x = x.mapping
 

@@ -17,12 +17,10 @@ depends: [
   "dune"
   "lwt" {>= "2.5.0"}
   "cstruct" {>= "6.0.0"}
-  "ppx_sexp_conv"
   "io-page"
   "mirage-flow" {>= "4.0.0"}
   "xenstore" {>= "1.2.2"}
   "xenstore_transport" {>= "1.0.0"}
-  "sexplib"
   "cmdliner" {with-test}
   "ounit2" {with-test}
 ]

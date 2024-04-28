@@ -14,27 +14,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Sexplib.Std
-
 (* FIXME: This should probably be pushed into xen-evtchn *)
 
 open Lwt
 
-type port = int [@@deriving sexp_of]
+type port = int
 
 let port_of_string x = Ok (int_of_string x)
 let string_of_port = string_of_int
 
 let next_port = ref 0
 
-type event = int [@@deriving sexp_of]
+type event = int
 let initial = 0
 
-module Lwt_condition = struct
-  include Lwt_condition
-  type _t = unit [@@deriving sexp]
-  let sexp_of_t _ _ = sexp_of__t ()
-end
 type state =
   | Unbound
   | Closed
@@ -44,7 +37,7 @@ and channel = {
   c: unit Lwt_condition.t;
   mutable state: state;
   port: port;
-} [@@deriving sexp_of]
+}
 
 let create () =
   let port = !next_port in

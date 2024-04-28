@@ -95,8 +95,6 @@ let with_connection read_size write_size f =
        shutdown () >>= fun () ->
        return x
     ) (fun e ->
-       Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-       Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
        shutdown () >>= fun () ->
        fail e
     )

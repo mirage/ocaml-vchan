@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type t [@@deriving sexp]
+type t
 
 val of_string: string -> (t, [> `Msg of string ]) result
 

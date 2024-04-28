@@ -13,20 +13,17 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Sexplib.Std
-
-type grant = int32 [@@deriving sexp]
+type grant = int32
 
 let grant_of_int32 x = x
 let int32_of_grant x = x
 
 type page = Io_page.t
-let sexp_of_page _ = Sexplib.Sexp.Atom "<buffer>"
 
 type share = {
   grants: grant list;
   mapping: page;
-} [@@deriving sexp_of]
+}
 
 let grants_of_share x = x.grants
 let buf_of_share x = x.mapping
@@ -61,12 +58,11 @@ let gnttab_interface_open =
   | Some i -> i
 
 type page' = Gnt.Gnttab.Local_mapping.t
-let sexp_of_page' = sexp_of_page
 
 type mapping = {
   mapping: page';
   grants: (int * int32) list;
-} [@@deriving sexp_of]
+}
 
 let buf_of_mapping m = Gnt.Gnttab.Local_mapping.to_buf m.mapping
 
