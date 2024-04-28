@@ -11,7 +11,7 @@ if [ -z "$KEEP" ]; then trap "popd; rm -rf $COVERAGE_DIR" EXIT; fi
 $(which cp) -r ../* .
 
 eval `opam config env`
-opam install -y bisect_ppx oasis ocveralls ounit
+opam install -y bisect_ppx oasis ocveralls ounit2
 
 sed -i 's/BuildDepends:/BuildDepends: bisect_ppx,/g' _oasis
 oasis setup
