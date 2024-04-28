@@ -166,7 +166,6 @@ let test_write_wraps () = Lwt_main.run (
 ); V.assert_cleaned_up ()
 
 let _ =
-
   let suite = "vchan" >::: [
     "connect" >::: (List.map test_connect interesting_buffer_sizes);
     "write_read" >::: (List.map test_write_read interesting_buffer_sizes);

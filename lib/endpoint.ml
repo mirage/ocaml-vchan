@@ -44,18 +44,19 @@ external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_f
 (* XXX: the xen headers do not use __attribute__(packed). Edit vb: Was
    OK for me. *)
 
-[@@@warning "-32"]
-
 (* matches xen/include/public/io/libxenvchan.h:ring_shared *)
-[%%cstruct
-type ring_shared = {
+(* type ring_shared = {
   cons: uint32_t;
   prod: uint32_t;
-} [@@little_endian]
-]
+   } [@@little_endian] *)
+
+let get_ring_shared_cons b = Cstruct.LE.get_uint32 b 0
+let set_ring_shared_cons b v = Cstruct.LE.set_uint32 b 0 v
+let get_ring_shared_prod b = Cstruct.LE.get_uint32 b 4
+let set_ring_shared_prod b v = Cstruct.LE.set_uint32 b 4 v
 
 (* matches xen/include/public/io/libxenvchan.h:vchan_interface *)
-[%%cstruct
+(*[%%cstruct
 type vchan_interface = {
   left: uint8_t [@len 8];  (* ring_shared *)
   right: uint8_t [@len 8]; (* ring_shared *)
@@ -67,8 +68,23 @@ type vchan_interface = {
   srv_notify: uint8_t;
 } [@@little_endian]
 ]
+*)
 
-[@@@warning "+32"]
+let get_vchan_interface_left v = Cstruct.sub v 0 8
+let get_vchan_interface_right v = Cstruct.sub v 8 8
+let get_vchan_interface_left_order v = Cstruct.LE.get_uint16 v 16
+let set_vchan_interface_left_order v d = Cstruct.LE.set_uint16 v 16 d
+let get_vchan_interface_right_order v = Cstruct.LE.get_uint16 v 18
+let set_vchan_interface_right_order v d = Cstruct.LE.set_uint16 v 18 d
+let get_vchan_interface_cli_live v = Cstruct.get_uint8 v 20
+let set_vchan_interface_cli_live v d = Cstruct.set_uint8 v 20 d
+let get_vchan_interface_srv_live v = Cstruct.get_uint8 v 21
+let set_vchan_interface_srv_live v d = Cstruct.set_uint8 v 21 d
+let _get_vchan_interface_cli_notify v = Cstruct.get_uint8 v 22
+let set_vchan_interface_cli_notify v d = Cstruct.set_uint8 v 22 d
+let _get_vchan_interface_srv_notify v = Cstruct.get_uint8 v 23
+let set_vchan_interface_srv_notify v d = Cstruct.set_uint8 v 23 d
+let sizeof_vchan_interface = 24
 
 let get_ro v = get_vchan_interface_right_order v
 let get_lo v = get_vchan_interface_left_order v

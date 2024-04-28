@@ -18,7 +18,6 @@ depends: [
   "lwt" {>= "2.5.0"}
   "cstruct" {>= "6.0.0"}
   "ppx_sexp_conv"
-  "ppx_cstruct"
   "io-page"
   "mirage-flow" {>= "4.0.0"}
   "xenstore" {>= "1.2.2"}
