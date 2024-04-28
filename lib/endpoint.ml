@@ -521,4 +521,6 @@ let close (vch: t) =
       return ()
   end
 
+let shutdown (vch: t) _mode =
+  close vch
 end
