@@ -79,9 +79,9 @@ let get_vchan_interface_cli_live v = Cstruct.get_uint8 v 20
 let set_vchan_interface_cli_live v d = Cstruct.set_uint8 v 20 d
 let get_vchan_interface_srv_live v = Cstruct.get_uint8 v 21
 let set_vchan_interface_srv_live v d = Cstruct.set_uint8 v 21 d
-let _get_vchan_interface_cli_notify v = Cstruct.get_uint8 v 22
+(* let get_vchan_interface_cli_notify v = Cstruct.get_uint8 v 22 *)
 let set_vchan_interface_cli_notify v d = Cstruct.set_uint8 v 22 d
-let _get_vchan_interface_srv_notify v = Cstruct.get_uint8 v 23
+(* let get_vchan_interface_srv_notify v = Cstruct.get_uint8 v 23 *)
 let set_vchan_interface_srv_notify v d = Cstruct.set_uint8 v 23 d
 let sizeof_vchan_interface = 24
 
