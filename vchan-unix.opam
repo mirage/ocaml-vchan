@@ -13,20 +13,16 @@ depends: [
   "vchan" {= version}
   "lwt" {>= "2.5.0"}
   "cstruct" {>= "1.9.0"}
-  "ppx_sexp_conv"
-  "ppx_cstruct"
   "io-page"
   "mirage-flow" {>= "2.0.0"}
   "xenstore" {>= "1.2.2"}
   "xenstore_transport" {>= "1.0.0"}
   "xen-evtchn-unix"
   "xen-gnt-unix"
-  "sexplib"
   "xen-evtchn"
   "xen-gnt"
   "fmt" {>= "0.8.7"}
-  "cmdliner" {with-test}
-  "ounit2" {with-test}
+  "cmdliner" {with-test & >= "1.1.0"}
 ]
 build: [
   ["dune" "subst"] {dev}

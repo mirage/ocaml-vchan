@@ -13,12 +13,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Sexplib.Std
-
 type offset =
   | First
   | Second
-[@@deriving sexp]
 (** Valid offsets within the shared page *)
 
 let to_offset = function
@@ -28,7 +25,6 @@ let to_offset = function
 type t =
   | Within_shared_page of offset
   | External of int
-[@@deriving sexp]
 
 let to_length = function
   | Within_shared_page First -> 1024

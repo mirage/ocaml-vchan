@@ -79,12 +79,14 @@ let cmd =
     `P "To connect to domid 1 on port 'hello':";
     `P "xencat 1 hello";
   ] in
-  Term.(pure node $ listen $ domid $ port $ buffer_size),
-  Term.info "xencat" ~version:"0.1" ~doc ~man
+  let term = Term.(const node $ listen $ domid $ port $ buffer_size)
+  and info = Cmd.info "xencat" ~version:"0.1" ~doc ~man
+  in
+  Cmd.v info term
 
 let () =
   let (_: Lwt_unix.signal_handler_id) = Lwt_unix.on_signal Sys.sigint
     (fun (_: int) ->
       Lwt.wakeup_later sigint_u ();
     ) in
-  match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
+  exit (Cmd.eval cmd)

@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open S
-open Sexplib.Std
 open Lwt
 
 let ( >>= ) = Lwt.bind
@@ -44,18 +43,19 @@ external atomic_fetch_and : Cstruct.buffer -> int -> int -> int = "stub_atomic_f
 (* XXX: the xen headers do not use __attribute__(packed). Edit vb: Was
    OK for me. *)
 
-[@@@warning "-32"]
-
 (* matches xen/include/public/io/libxenvchan.h:ring_shared *)
-[%%cstruct
-type ring_shared = {
+(* type ring_shared = {
   cons: uint32_t;
   prod: uint32_t;
-} [@@little_endian]
-]
+   } [@@little_endian] *)
+
+let get_ring_shared_cons b = Cstruct.LE.get_uint32 b 0
+let set_ring_shared_cons b v = Cstruct.LE.set_uint32 b 0 v
+let get_ring_shared_prod b = Cstruct.LE.get_uint32 b 4
+let set_ring_shared_prod b v = Cstruct.LE.set_uint32 b 4 v
 
 (* matches xen/include/public/io/libxenvchan.h:vchan_interface *)
-[%%cstruct
+(*[%%cstruct
 type vchan_interface = {
   left: uint8_t [@len 8];  (* ring_shared *)
   right: uint8_t [@len 8]; (* ring_shared *)
@@ -67,8 +67,23 @@ type vchan_interface = {
   srv_notify: uint8_t;
 } [@@little_endian]
 ]
+*)
 
-[@@@warning "+32"]
+let get_vchan_interface_left v = Cstruct.sub v 0 8
+let get_vchan_interface_right v = Cstruct.sub v 8 8
+let get_vchan_interface_left_order v = Cstruct.LE.get_uint16 v 16
+let set_vchan_interface_left_order v d = Cstruct.LE.set_uint16 v 16 d
+let get_vchan_interface_right_order v = Cstruct.LE.get_uint16 v 18
+let set_vchan_interface_right_order v d = Cstruct.LE.set_uint16 v 18 d
+let get_vchan_interface_cli_live v = Cstruct.get_uint8 v 20
+let set_vchan_interface_cli_live v d = Cstruct.set_uint8 v 20 d
+let get_vchan_interface_srv_live v = Cstruct.get_uint8 v 21
+let set_vchan_interface_srv_live v d = Cstruct.set_uint8 v 21 d
+let _get_vchan_interface_cli_notify v = Cstruct.get_uint8 v 22
+let set_vchan_interface_cli_notify v d = Cstruct.set_uint8 v 22 d
+let _get_vchan_interface_srv_notify v = Cstruct.get_uint8 v 23
+let set_vchan_interface_srv_notify v d = Cstruct.set_uint8 v 23 d
+let sizeof_vchan_interface = 24
 
 let get_ro v = get_vchan_interface_right_order v
 let get_lo v = get_vchan_interface_left_order v
@@ -93,7 +108,6 @@ type server_params =
     read_shr: M.share option;
     write_shr: M.share option
   }
-[@@deriving sexp_of]
 
 type client_params =
   {
@@ -101,14 +115,12 @@ type client_params =
     read_map: M.mapping option;
     write_map: M.mapping option
   }
-[@@deriving sexp_of]
 
 (* Vchan peers are explicitly client or servers *)
 type role =
   (* true if we allow reconnection *)
   | Server of server_params
   | Client of client_params
-[@@deriving sexp_of]
 
 (* The state of a single vchan peer *)
 type t = {
@@ -124,13 +136,12 @@ type t = {
   mutable closed: bool;
 }
 
-type port = Port.t [@@deriving sexp_of]
+type port = Port.t
 
 type state =
   | Exited
   | Connected
   | WaitingForConnection
-[@@deriving sexp]
 
 type error
 let pp_error _ (_:error) = assert false
@@ -181,57 +192,6 @@ let wr_ring_size vch = match vch.role with
 let rd_ring_size vch = match vch.role with
   | Client _ -> 1 lsl get_ro vch.shared_page
   | Server _ -> 1 lsl get_lo vch.shared_page
-
-(* A convenient wrapper to enhance the pretty-printing *)
-type printable_t = {
-  role: role;
-  left_order: Location.t option;
-  right_order: Location.t option;
-  remote_domid: int;
-  remote_port: Port.t;
-  client_state: state option;
-  server_state: state option;
-  read_producer: int32;
-  read_consumer: int32;
-  read: string;
-  write_producer: int32;
-  write_consumer: int32;
-  write: string;
-  ack_up_to: int;
-  closed: bool;
-} [@@deriving sexp_of]
-
-let sexp_of_t (t: t) =
-  let role = t.role in
-  let client_state =
-    match state_of_live (get_vchan_interface_cli_live t.shared_page)
-    with Ok st -> Some st | _ -> None in
-  let server_state =
-    match state_of_live (get_vchan_interface_srv_live t.shared_page)
-    with Ok st -> Some st | _ -> None in
-  let left_order =
-    match Location.of_order (get_vchan_interface_left_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
-  let right_order =
-    match Location.of_order (get_vchan_interface_right_order t.shared_page)
-    with Ok x -> Some x | _ -> None in
-  let read_producer = rd_prod t in
-  let read_consumer = rd_cons t in
-  let read = Cstruct.to_string t.read in
-  let write_producer = wr_prod t in
-  let write_consumer = wr_cons t in
-  let write = Cstruct.to_string t.write in
-  let remote_domid = t.remote_domid in
-  let remote_port = t.remote_port in
-  let ack_up_to = t.ack_up_to in
-  let closed = t.closed in
-  let printable_t = {
-    role; left_order; right_order;
-    client_state; server_state; read_producer; read_consumer; read;
-    write_producer; write_consumer; write; remote_domid; remote_port;
-    ack_up_to; closed;
-  } in
-  sexp_of_printable_t printable_t
 
 (* Request notify to the other endpoint. If client, request to server,
    and vice versa. *)
@@ -521,4 +481,6 @@ let close (vch: t) =
       return ()
   end
 
+let shutdown (vch: t) _mode =
+  close vch
 end

@@ -95,8 +95,6 @@ let with_connection read_size write_size f =
        shutdown () >>= fun () ->
        return x
     ) (fun e ->
-       Printf.fprintf stderr "client = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t client));
-       Printf.fprintf stderr "server = %s\n%!" (Sexplib.Sexp.to_string_hum (V.sexp_of_t server));
        shutdown () >>= fun () ->
        fail e
     )
@@ -166,7 +164,6 @@ let test_write_wraps () = Lwt_main.run (
 ); V.assert_cleaned_up ()
 
 let _ =
-
   let suite = "vchan" >::: [
     "connect" >::: (List.map test_connect interesting_buffer_sizes);
     "write_read" >::: (List.map test_write_read interesting_buffer_sizes);
