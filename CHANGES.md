@@ -1,3 +1,9 @@
+## v6.0.2 (2024-04-29)
+* adapt to mirage-flow 4 changes (add shutdown, alias to close) (#143 @hannesm)
+* remove ppx_cstruct and sexplib and ppx_sexp_conv dependencies (#143 @hannesm)
+* update to cmdliner 1.1.0 changes (#143 @hannesm)
+* use oUnit2 (#141 @Alessandro-Barbieri)
+
 ## v6.0.1 (2022-03-02)
 * Adapt to mirage-xen.7.0.0 API changes (#138 @dinosaure)
 
